@@ -108,7 +108,6 @@ class MarsMinersGame:
             if self.roles[p_id] != 'none' and not self.player_lost[p_id]:
                 if not self.can_player_move(p_id):
                     self.player_lost[p_id] = True
-                    print(f"[LOG] Player {p_id} has no moves and is ELIMINATED.")
                 else:
                     players_able_to_move += 1
 
@@ -313,6 +312,12 @@ class MainFrame(wx.Frame):
 
         sidebar.Add(wx.StaticText(panel, label="--- EXPEDITION LOG ---"), 0, wx.ALL, 10)
         sidebar.Add(self.status_label, 0, wx.ALL, 10)
+
+        # Skip Turn Button
+        self.btn_skip = wx.Button(panel, label="Skip Turn")
+        self.btn_skip.Bind(wx.EVT_BUTTON, self.OnSkipTurn)
+        sidebar.Add(self.btn_skip, 0, wx.ALL | wx.EXPAND, 10)
+
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
 
         for i in range(1, 5):
@@ -346,6 +351,16 @@ class MainFrame(wx.Frame):
         self.Centre()
         self.Show()
 
+    def OnSkipTurn(self, event):
+        if self.game.game_over:
+            return
+
+        # Only allow skipping if it's a human's turn
+        if self.game.roles.get(self.game.turn) == 'human':
+            self.game.next_turn()
+            self.game_panel.Refresh()
+            self.UpdateStatus()
+
     def OnNewGameRequest(self, event):
         msg = "Are you sure you want to abandon the current mission and start over?"
         dlg = wx.MessageDialog(self, msg, "Abandon Mission", wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
@@ -370,6 +385,7 @@ class MainFrame(wx.Frame):
             else:
                 winner_id = max(scores, key=scores.get)
                 self.status_label.SetLabel(f"MISSION COMPLETE!\nWINNER: {self.game.players[winner_id]['name']}")
+            self.btn_skip.Disable()
         else:
             p_data = self.game.players.get(self.game.turn)
             if p_data:
@@ -377,6 +393,12 @@ class MainFrame(wx.Frame):
                 req = self.game.weapon_req
                 charge = f"READY ({power})" if power >= req else f"CHARGING ({power}/{req})"
                 self.status_label.SetLabel(f"TURN: {p_data['name']}\nLASER: {charge}")
+
+            # Disable skip button if it's not a human's turn
+            if self.game.roles.get(self.game.turn) == 'human':
+                self.btn_skip.Enable()
+            else:
+                self.btn_skip.Disable()
 
         scores = self.game.get_scores()
         for p_id, lbl in self.score_labels:
