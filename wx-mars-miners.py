@@ -5,6 +5,8 @@ import time
 # Game Constants
 GRID_SIZE = 10
 CELL_SIZE = 50
+SYMBOL_FONT_SIZE = 32
+CELL_TOP_OFFSET = 12  # Constant vertical offset for symbol alignment
 WINDOW_WIDTH = 750
 WINDOW_HEIGHT = 550
 
@@ -208,8 +210,7 @@ class GamePanel(wx.Panel):
 
     def draw_cell_content(self, dc, r, c, cell):
         x, y = c * CELL_SIZE, r * CELL_SIZE
-        # High quality font for symbols
-        font = wx.Font(24, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        font = wx.Font(SYMBOL_FONT_SIZE, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
         dc.SetFont(font)
 
         color = wx.WHITE
@@ -223,13 +224,11 @@ class GamePanel(wx.Panel):
 
         dc.SetTextForeground(color)
 
-        # Using GetFullTextExtent for precise centering including descent
-        tw, th, descent, leading = dc.GetFullTextExtent(cell)
+        tw, th = dc.GetTextExtent(cell)
 
-        # Horizontal centering is calculated normally
+        # Horizontal centering + Fixed Top Offset
         cx = x + (CELL_SIZE - tw) / 2
-        # Fixed top offset of 6 pixels requested
-        cy = y + 14
+        cy = y + CELL_TOP_OFFSET
 
         dc.DrawText(cell, int(cx), int(cy))
 
@@ -331,7 +330,6 @@ class MainFrame(wx.Frame):
         sidebar.Add(wx.StaticText(panel, label="--- EXPEDITION LOG ---"), 0, wx.ALL, 10)
         sidebar.Add(self.status_label, 0, wx.ALL, 10)
 
-        # Skip Turn Button
         self.btn_skip = wx.Button(panel, label="Skip Turn")
         self.btn_skip.Bind(wx.EVT_BUTTON, self.OnSkipTurn)
         sidebar.Add(self.btn_skip, 0, wx.ALL | wx.EXPAND, 10)
@@ -375,8 +373,6 @@ class MainFrame(wx.Frame):
     def OnSkipTurn(self, event):
         if self.game.game_over:
             return
-
-        # Only allow skipping if it's a human's turn
         if self.game.roles.get(self.game.turn) == 'human':
             self.game.next_turn()
             self.game_panel.Refresh()
@@ -400,7 +396,6 @@ class MainFrame(wx.Frame):
 
     def UpdateStatus(self):
         if self.game.game_over:
-            # Find winner based on mines
             scores = self.game.get_scores()
             if not scores:
                 self.status_label.SetLabel("MISSION FAILED\nALL ELIMINATED")
@@ -416,7 +411,6 @@ class MainFrame(wx.Frame):
                 charge = f"READY ({power})" if power >= req else f"CHARGING ({power}/{req})"
                 self.status_label.SetLabel(f"TURN: {p_data['name']}\nLASER: {charge}")
 
-            # Disable skip button if it's not a human's turn
             if self.game.roles.get(self.game.turn) == 'human':
                 self.btn_skip.Enable()
             else:
@@ -426,7 +420,7 @@ class MainFrame(wx.Frame):
         for p_id, lbl in self.score_labels:
             if self.game.player_lost[p_id]:
                 lbl.SetLabel(f"{self.game.players[p_id]['name']}: LOST (Mines: {scores.get(p_id, 0)})")
-                lbl.SetForegroundColour(wx.Colour(150, 150, 150)) # Grey out lost players
+                lbl.SetForegroundColour(wx.Colour(150, 150, 150))
             else:
                 lbl.SetLabel(f"{self.game.players[p_id]['name']}: {scores.get(p_id, 0)} Mines")
 
