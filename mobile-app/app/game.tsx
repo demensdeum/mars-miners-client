@@ -166,59 +166,53 @@ export default function GameScreen() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={handleBack} style={styles.backBtn}><Text style={styles.btnText}>←</Text></TouchableOpacity>
-                <Text style={styles.headerTitle} numberOfLines={2}>{statusText}</Text>
-                <View style={{ width: 40 }} />
-            </View>
-
-            <View style={styles.contentRow}>
-                <View style={styles.gridContainer}>
-                    <FlatList
-                        data={flatGrid}
-                        renderItem={renderCell}
-                        keyExtractor={(_, i) => i.toString()}
-                        numColumns={game.size}
-                        key={game.size}
-                        scrollEnabled={false}
-                    />
-                </View>
-
-                <View style={styles.sidePanel}>
-                    <Text style={styles.panelTitle}>{t('build_mode', game.lang)}</Text>
-
-                    <TouchableOpacity
-                        style={[styles.cBtn, buildMode === 'st' ? styles.activeBtn : {}]}
-                        onPress={() => setBuildMode('st')}
-                        disabled={!isHumanTurn}
-                    >
-                        <Text style={styles.cBtnText}>{t('station_btn', game.lang)}</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.cBtn, buildMode === 'mi' ? styles.activeBtn : {}]}
-                        onPress={() => setBuildMode('mi')}
-                        disabled={!isHumanTurn}
-                    >
-                        <Text style={styles.cBtnText}>{t('mine_btn', game.lang)}</Text>
-                    </TouchableOpacity>
-
-
-                    <View style={styles.divider} />
-
-                    {/* Scores */}
-                    <View style={styles.scores}>
+                <View style={styles.headerInfo}>
+                    <Text style={styles.headerTitle} numberOfLines={2}>{statusText}</Text>
+                    {/* Compact Scores in Header */}
+                    <View style={styles.headerScores}>
                         {[1, 2, 3, 4].map(pid => {
                             const id = pid as PlayerId;
                             if (game.roles[id] === 'none') return null;
                             const score = game.getScores()[id] || 0;
                             const isLost = game.player_lost[id];
                             return (
-                                <Text key={id} style={{ color: isLost ? '#666' : game.players[id].color, fontSize: 12, marginBottom: 4 }}>
-                                    {game.players[id].name}: {score}
+                                <Text key={id} style={{ color: isLost ? '#666' : game.players[id].color, fontSize: 10, marginHorizontal: 4 }}>
+                                    {game.players[id].name}:{score}
                                 </Text>
                             );
                         })}
                     </View>
                 </View>
+                <View style={{ width: 40 }} />
+            </View>
+
+            <View style={styles.gridContainer}>
+                <FlatList
+                    data={flatGrid}
+                    renderItem={renderCell}
+                    keyExtractor={(_, i) => i.toString()}
+                    numColumns={game.size}
+                    key={game.size}
+                    scrollEnabled={false}
+                />
+            </View>
+
+            <View style={styles.bottomBar}>
+                <TouchableOpacity
+                    style={[styles.bottomBtn, buildMode === 'st' ? styles.activeBtn : {}]}
+                    onPress={() => setBuildMode('st')}
+                    disabled={!isHumanTurn}
+                >
+                    <Text style={styles.btnLabel}>{t('station_btn', game.lang)}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.bottomBtn, buildMode === 'mi' ? styles.activeBtn : {}]}
+                    onPress={() => setBuildMode('mi')}
+                    disabled={!isHumanTurn}
+                >
+                    <Text style={styles.btnLabel}>{t('mine_btn', game.lang)}</Text>
+                </TouchableOpacity>
             </View>
         </View>
     );
@@ -226,25 +220,18 @@ export default function GameScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#121212', paddingTop: 40 },
-    header: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 10, marginBottom: 10, height: 60, borderBottomWidth: 1, borderBottomColor: '#333' },
+    header: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 10, height: 70, borderBottomWidth: 1, borderBottomColor: '#333' },
     backBtn: { padding: 10 },
     btnText: { color: '#fff', fontSize: 24 },
-    headerTitle: { flex: 1, color: '#fff', textAlign: 'center', fontSize: 14 },
+    headerInfo: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { color: '#fff', textAlign: 'center', fontSize: 14, marginBottom: 2 },
+    headerScores: { flexDirection: 'row', justifyContent: 'center', width: '100%' },
 
-    contentRow: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center' },
-
-    gridContainer: { flex: 2, alignItems: 'center', justifyContent: 'center', paddingTop: 20 },
+    gridContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     cell: { borderWidth: 1, borderColor: '#333', alignItems: 'center', justifyContent: 'center' },
 
-    sidePanel: { flex: 1, backgroundColor: '#1a1a1a', height: '100%', padding: 15, borderLeftWidth: 1, borderLeftColor: '#333', alignItems: 'center' },
-    panelTitle: { color: '#aaa', fontSize: 12, marginBottom: 10, alignSelf: 'flex-start' },
-
-    cBtn: { backgroundColor: '#333', padding: 12, borderRadius: 5, width: '100%', alignItems: 'center', marginBottom: 10 },
+    bottomBar: { flexDirection: 'row', height: 80, borderTopWidth: 1, borderTopColor: '#333', backgroundColor: '#1a1a1a' },
+    bottomBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333', margin: 10, borderRadius: 8 },
     activeBtn: { backgroundColor: '#007AFF' },
-    cBtnText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
-
-    skipBtn: { backgroundColor: '#444', padding: 10, borderRadius: 5, alignItems: 'center', width: '100%' },
-
-    divider: { width: '100%', height: 1, backgroundColor: '#333', marginVertical: 20 },
-    scores: { width: '100%' }
+    btnLabel: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });
