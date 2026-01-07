@@ -33,12 +33,13 @@ LOCALE = {
         'initializing': "Initializing...",
         'skip_turn': "Skip Turn",
         'active': "ACTIVE",
-        'lost': "LOST",
+        'lost': "BLOCKED",
         'mines': "Mines",
         'storage': "--- STORAGE ---",
         'save': "Save Mission",
         'load': "Load Mission",
         'new_game': "New Game",
+        'restart_game': "Restart Mission",
         'controls': "L-Click: Station\nShift+L: Mine",
         'attack_help': "Attack Enemy:\nL-Click enemy station",
         'requires': "Requires {n}+ Stations",
@@ -76,12 +77,13 @@ LOCALE = {
         'initializing': "Инициализация...",
         'skip_turn': "Пропустить ход",
         'active': "АКТИВЕН",
-        'lost': "ВЫБЫЛ",
+        'lost': "БЛОКИРОВАН",
         'mines': "Шахт",
         'storage': "--- ХРАНИЛИЩЕ ---",
         'save': "Сохранить",
         'load': "Загрузить",
         'new_game': "Новая игра",
+        'restart_game': "Начать заново",
         'controls': "ЛКМ: Станция\nShift+ЛКМ: Шахта",
         'attack_help': "Атака врага:\nЛКМ по вражеской станции",
         'requires': "Нужно {n}+ станций",
@@ -461,8 +463,13 @@ class MainFrame(wx.Frame):
         btn_load = wx.Button(panel, label=self.game.t('load'))
         btn_load.Bind(wx.EVT_BUTTON, self.OnLoadGame); sidebar.Add(btn_load, 0, wx.ALL | wx.EXPAND, 5)
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
+
+        btn_restart = wx.Button(panel, label=self.game.t('restart_game'))
+        btn_restart.Bind(wx.EVT_BUTTON, self.OnRestartGame); sidebar.Add(btn_restart, 0, wx.ALL | wx.EXPAND, 5)
+
         btn_new_game = wx.Button(panel, label=self.game.t('new_game'))
         btn_new_game.Bind(wx.EVT_BUTTON, self.OnNewGameRequest); sidebar.Add(btn_new_game, 0, wx.ALL | wx.EXPAND, 10)
+
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
         sidebar.Add(wx.StaticText(panel, label=self.game.t('controls')), 0, wx.ALL, 2)
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
@@ -484,7 +491,13 @@ class MainFrame(wx.Frame):
     def OnSkipTurn(self, e):
         if not self.game.game_over and self.game.roles.get(self.game.turn) == 'human':
             self.game.next_turn(); self.game_panel.Refresh(); self.UpdateStatus()
+    def OnRestartGame(self, e):
+        """Restarts the current mission with same settings after confirmation."""
+        if wx.MessageDialog(self, self.game.t('abandon_msg'), self.game.t('abandon_title'), wx.YES_NO).ShowModal() == wx.ID_YES:
+            self.game = MarsMinersGame(self.game.roles, self.game.size, self.game.weapon_req, self.game.allow_skip, self.game.ai_wait, self.game.lang); self.init_ui()
+
     def OnNewGameRequest(self, e):
+        """Opens setup dialog for a new game with potentially different settings."""
         if wx.MessageDialog(self, self.game.t('abandon_msg'), self.game.t('abandon_title'), wx.YES_NO).ShowModal() == wx.ID_YES:
             dlg = RoleDialog(self, self.game.lang)
             if dlg.ShowModal() == wx.ID_OK:
