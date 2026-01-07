@@ -95,11 +95,23 @@ export default function GameScreen() {
 
 
 
+    const [layout, setLayout] = useState({ width: 0, height: 0 });
+
+    const onLayout = (event: any) => {
+        const { width, height } = event.nativeEvent.layout;
+        setLayout({ width, height });
+    };
+
     // Rendering Helpers
     const weaponCells = highlight ? game.getWeaponCells() : new Set();
-    const cellSize = game.size === 10 ? 34 : (game.size === 15 ? 22 : 16); // Adjusted for mobile screen width roughly
+
+    // Calculate cell size to fit container
+    const availableSize = Math.min(layout.width, layout.height);
+    const cellSize = availableSize > 0 ? (Math.floor(availableSize / game.size) - 2) : 0; // -2 for margin/border safety
 
     const renderCell = ({ item, index }: { item: string, index: number }) => {
+        if (cellSize <= 0) return null;
+
         // FlatList data will be flattened grid? Or we render rows?
         // Let's flatten grid for FlatList.
         // Actually FlatList with numColumns is easier.
@@ -108,6 +120,8 @@ export default function GameScreen() {
         const c = index % game.size;
 
         const isWeaponPart = weaponCells.has(`${r},${c}`);
+
+        // ... (rest of logic same) ...
 
         let bgColor = '#1e1e1e';
         if (isWeaponPart) bgColor = '#504614';
@@ -186,17 +200,22 @@ export default function GameScreen() {
                 <View style={{ width: 40 }} />
             </View>
 
-            <View style={styles.gridContainer}>
-                <FlatList
-                    data={flatGrid}
-                    renderItem={renderCell}
-                    keyExtractor={(_, i) => i.toString()}
-                    numColumns={game.size}
-                    key={game.size}
-                    scrollEnabled={false}
-                />
+            <View style={styles.gridContainer} onLayout={onLayout}>
+                {cellSize > 0 && (
+                    <View style={{ width: cellSize * game.size, height: cellSize * game.size }}>
+                        <FlatList
+                            data={flatGrid}
+                            renderItem={renderCell}
+                            keyExtractor={(_, i) => i.toString()}
+                            numColumns={game.size}
+                            key={game.size}
+                            scrollEnabled={false}
+                        />
+                    </View>
+                )}
             </View>
 
+            {/* Same bottom bar */}
             <View style={styles.bottomBar}>
                 <TouchableOpacity
                     style={[styles.bottomBtn, buildMode === 'st' ? styles.activeBtn : {}]}
