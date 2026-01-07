@@ -2,6 +2,7 @@ import wx
 import random
 import time
 import json
+import math
 
 # Game Constants (Defaults)
 SYMBOL_FONT_SIZE = 32
@@ -42,7 +43,7 @@ LOCALE = {
         'attack_help': "Attack Enemy:\nL-Click enemy station",
         'requires': "Requires {n}+ Stations",
         'failed': "MISSION FAILED\nALL ELIMINATED",
-        'winner': "MISSION COMPLETE!\nWINNER: {name}",
+        'winner': "MISSION COMPLETE!\nWINNER: {name} ({m} Mines)",
         'turn': "TURN: {name}",
         'ready': "READY ({n})",
         'charging': "CHARGING ({n}/{req})",
@@ -82,7 +83,7 @@ LOCALE = {
         'attack_help': "Атака врага:\nЛКМ по вражеской станции",
         'requires': "Нужно {n}+ станций",
         'failed': "МИССИЯ ПРОВАЛЕНА\nВСЕ ПОГИБЛИ",
-        'winner': "МИССИЯ ВЫПОЛНЕНА!\nПОБЕДИТЕЛЬ: {name}",
+        'winner': "МИССИЯ ВЫПОЛНЕНА!\nПОБЕДИТЕЛЬ: {name} ({m} Шахт)",
         'turn': "ХОД: {name}",
         'ready': "ГОТОВО ({n})",
         'charging': "ЗАРЯДКА ({n}/{req})",
@@ -182,15 +183,11 @@ class MarsMinersGame:
         return max_p
 
     def can_player_move(self, p):
+        """Check if player can build anything (Stations or Mines)"""
         if self.player_lost[p]: return False
         for r in range(self.size):
             for c in range(self.size):
                 if self.can_build(r, c, p): return True
-        if self.get_line_power(p) >= self.weapon_req:
-            for r in range(self.size):
-                for c in range(self.size):
-                    cell = self.grid[r][c]
-                    if cell != '.' and cell != '█': return True
         return False
 
     def can_build(self, r, c, p):
@@ -211,15 +208,20 @@ class MarsMinersGame:
         return False
 
     def next_turn(self):
-        active = 0
+        # Update loss state for all players first
         for p_id in range(1, 5):
             if self.roles[p_id] != 'none' and not self.player_lost[p_id]:
                 if not self.can_player_move(p_id):
                     self.player_lost[p_id] = True
-                else: active += 1
-        if active == 0:
+
+        # Check if any moves are left at all in the game
+        active_players = [p_id for p_id in range(1, 5) if self.roles[p_id] != 'none' and not self.player_lost[p_id]]
+
+        if not active_players:
             self.game_over = True
             return
+
+        # Attempt to find the next player who can actually act
         start_turn = self.turn
         self.turn = self.turn % 4 + 1
         while self.roles[self.turn] == 'none' or self.player_lost[self.turn]:
@@ -231,7 +233,6 @@ class MarsMinersGame:
 class RoleDialog(wx.Dialog):
     def __init__(self, parent, current_lang='en'):
         self.lang = current_lang
-        # Persistence for language switching
         self.cached_roles = None
         self.cached_size_idx = 0
         self.cached_weapon_idx = 1
@@ -251,7 +252,6 @@ class RoleDialog(wx.Dialog):
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Language Selector
         lang_panel = wx.Panel(self)
         lang_panel.SetBackgroundColour(wx.Colour(50, 50, 50))
         lang_inner_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -268,7 +268,6 @@ class RoleDialog(wx.Dialog):
         lang_panel.SetSizer(lang_inner_sizer)
         main_sizer.Add(lang_panel, 0, wx.EXPAND | wx.BOTTOM, 10)
 
-        # Assign Roles
         main_sizer.Add(wx.StaticText(self, label=self.t('assign_roles')), 0, wx.ALL | wx.CENTER, 5)
 
         self.role_choices = []
@@ -292,7 +291,6 @@ class RoleDialog(wx.Dialog):
 
         main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND | wx.ALL, 10)
 
-        # Parameters
         main_sizer.Add(wx.StaticText(self, label=self.t('map_size')), 0, wx.LEFT, 15)
         self.map_size_choice = wx.Choice(self, choices=["10 x 10", "15 x 15", "20 x 20"])
         self.map_size_choice.SetSelection(self.cached_size_idx)
@@ -313,7 +311,6 @@ class RoleDialog(wx.Dialog):
         self.skip_checkbox.SetValue(self.cached_skip)
         main_sizer.Add(self.skip_checkbox, 0, wx.EXPAND | wx.ALL, 15)
 
-        # Start Button
         btn_sizer = wx.StdDialogButtonSizer()
         self.start_btn = wx.Button(self, wx.ID_OK, label=self.t('start_btn'))
         btn_sizer.AddButton(self.start_btn)
@@ -336,7 +333,6 @@ class RoleDialog(wx.Dialog):
         self.init_ui()
 
     def OnClose(self, event):
-        # Ensure app closes if dialog is closed via X
         self.EndModal(wx.ID_CANCEL)
         wx.GetApp().ExitMainLoop()
 
@@ -390,7 +386,7 @@ class GamePanel(wx.Panel):
         if cell == 'X': color = wx.RED
         dc.SetTextForeground(color)
         tw, th = dc.GetTextExtent(cell)
-        dc.DrawText(cell, int(x + (self.cell_size - tw)/2), int(y + (self.cell_size - th)/2))
+        dc.DrawText(cell, int(x + (self.cell_size - tw)/2), int(y + CELL_TOP_OFFSET))
 
     def OnMouseClick(self, event):
         if self.game.roles.get(self.game.turn) != 'human' or self.game.game_over: return
@@ -403,6 +399,7 @@ class GamePanel(wx.Panel):
             for pid, p_data in self.game.players.items():
                 if cell == p_data['st'] and pid != self.game.turn:
                     enemy_id = pid; break
+
             if enemy_id:
                 power = self.game.get_line_power(self.game.turn)
                 if power >= self.game.weapon_req:
@@ -411,6 +408,7 @@ class GamePanel(wx.Panel):
                 if self.game.can_build(r, c, self.game.turn):
                     self.game.grid[r][c] = self.game.players[self.game.turn]['mi' if is_shift else 'st']
                     self.game.next_turn()
+
             self.Refresh()
             wx.GetTopLevelParent(self).UpdateStatus()
 
@@ -424,24 +422,51 @@ class GamePanel(wx.Panel):
     def ai_move(self):
         p = self.game.turn
         power = self.game.get_line_power(p)
+
+        # 1. ATTACK LOGIC
         if power >= self.game.weapon_req:
+            enemy_targets = []
             for r in range(self.game.size):
                 for c in range(self.game.size):
-                    if any(self.game.grid[r][c] == pd['st'] for pid, pd in self.game.players.items() if pid != p):
-                        if self.game.shoot_laser(r, c, power=power): return
-        build_targets = []
+                    cell = self.game.grid[r][c]
+                    for pid, p_data in self.game.players.items():
+                        if pid != p and cell == p_data['st']:
+                            enemy_targets.append((r, c))
+                            break
+            if enemy_targets:
+                tr, tc = random.choice(enemy_targets)
+                if self.game.shoot_laser(tr, tc, power=power): return
+
+        # 2. BUILD LOGIC
+        candidates = []
+        center_map = (self.game.size / 2 - 0.5, self.game.size / 2 - 0.5)
         for r in range(self.game.size):
             for c in range(self.game.size):
-                if self.game.can_build(r, c, p): build_targets.append((r, c))
-        if build_targets:
-            scored = []
-            for tr, tc in build_targets:
-                open_n = sum(1 for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]
-                            if 0 <= tr+dr < self.game.size and 0 <= tc+dc < self.game.size and self.game.grid[tr+dr][tc+dc] == '.')
-                scored.append(((tr, tc), open_n))
-            scored.sort(key=lambda x: x[1], reverse=True)
-            r, c = random.choice([t for t, v in scored if v == scored[0][1]])
-            self.game.grid[r][c] = self.game.players[p]['mi' if scored[0][1] > 1 and random.random() < 0.4 else 'st']
+                if self.game.can_build(r, c, p):
+                    neighbors = [(r+dr, c+dc) for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]
+                                 if 0 <= r+dr < self.game.size and 0 <= c+dc < self.game.size]
+                    open_neighbors = sum(1 for nr, nc in neighbors if self.game.grid[nr][nc] == '.')
+                    dist = ((r - center_map[0])**2 + (c - center_map[1])**2)**0.5
+                    candidates.append({'pos': (r, c), 'freedom': open_neighbors, 'dist': dist})
+
+        if not candidates: return
+        candidates.sort(key=lambda x: (x['freedom'], -x['dist']), reverse=True)
+        best_candidates = candidates[:max(1, min(3, len(candidates)))]
+        choice = random.choice(best_candidates)
+        r, c = choice['pos']
+        freedom = choice['freedom']
+
+        # 3. STATION VS MINE
+        total_possible_moves = len(candidates)
+        to_build = 'st'
+        if freedom == 0:
+            to_build = 'st' if power < self.game.weapon_req else 'mi'
+        else:
+            if total_possible_moves > 5 and random.random() < 0.2:
+                to_build = 'mi'
+            else:
+                to_build = 'st'
+        self.game.grid[r][c] = self.game.players[p][to_build]
 
 class MainFrame(wx.Frame):
     def __init__(self, roles, grid_size, weapon_req, allow_skip, ai_wait, lang):
@@ -534,10 +559,16 @@ class MainFrame(wx.Frame):
         wx.GetApp().ExitMainLoop()
 
     def UpdateStatus(self):
+        scores = self.game.get_scores()
         if self.game.game_over:
-            scores = self.game.get_scores()
-            if not scores: self.status_label.SetLabel(self.game.t('failed'))
-            else: self.status_label.SetLabel(self.game.t('winner', name=self.game.players[max(scores, key=scores.get)]['name']))
+            # Winner logic: Most mines when game is over
+            if not scores or all(v == 0 for v in scores.values()):
+                self.status_label.SetLabel(self.game.t('failed'))
+            else:
+                winner_id = max(scores, key=scores.get)
+                winner_name = self.game.players[winner_id]['name']
+                mine_count = scores[winner_id]
+                self.status_label.SetLabel(self.game.t('winner', name=winner_name, m=mine_count))
             self.btn_skip.Disable()
         else:
             p_name = self.game.players[self.game.turn]['name']
@@ -546,7 +577,6 @@ class MainFrame(wx.Frame):
             self.status_label.SetLabel(self.game.t('turn', name=p_name) + "\n" + charge)
             self.btn_skip.Enable(self.game.roles.get(self.game.turn) == 'human')
 
-        scores = self.game.get_scores()
         for p_id, lbl in self.score_labels:
             status = self.game.t('lost') if self.game.player_lost[p_id] else self.game.t('active')
             lbl.SetLabel(f"{self.game.players[p_id]['name']}: {status} ({scores.get(p_id, 0)} {self.game.t('mines')})")
