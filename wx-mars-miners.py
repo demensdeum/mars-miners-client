@@ -294,6 +294,7 @@ class GamePanel(wx.Panel):
         p = self.game.turn
         power = self.game.get_line_power(p)
 
+        # 1. ATTACK: If we have power, try to shoot an enemy station
         if power >= self.game.weapon_req:
             for r in range(self.game.size):
                 for c in range(self.game.size):
@@ -302,17 +303,45 @@ class GamePanel(wx.Panel):
                         if self.game.shoot_laser(r, c, power=power):
                             return
 
+        # 2. EVALUATE BUILDING: Find all valid build spots
         stations = [(r,c) for r in range(self.game.size) for c in range(self.game.size) if self.game.grid[r][c] == self.game.players[p]['st']]
         build_targets = []
         for r_s, c_s in stations:
             for dr, dc in [(-1,0), (1,0), (0,-1), (0,1)]:
                 nr, nc = r_s + dr, c_s + dc
                 if self.game.can_build(nr, nc, p):
+                    # Check if building a mine here would "lock" the station by blocking all neighbors
+                    # or if building a station here is a dead-end
                     build_targets.append((nr, nc))
 
         if build_targets:
-            r, c = random.choice(build_targets)
-            if random.random() < 0.3:
+            # AI Strategy to avoid locking:
+            # Prefer building STATIONS in spots that have more adjacent empty cells (more expansion room)
+            # Only build MINES in spots that aren't the ONLY exit for a station.
+
+            scored_targets = []
+            for tr, tc in build_targets:
+                # Count open adjacent spots (potential future expansion)
+                open_neighbors = 0
+                for dr, dc in [(-1,0), (1,0), (0,-1), (0,1)]:
+                    check_r, check_c = tr + dr, tc + dc
+                    if 0 <= check_r < self.game.size and 0 <= check_c < self.game.size:
+                        if self.game.grid[check_r][check_c] == '.':
+                            open_neighbors += 1
+                scored_targets.append(((tr, tc), open_neighbors))
+
+            # Sort by expansion potential
+            scored_targets.sort(key=lambda x: x[1], reverse=True)
+
+            # Select from the best options
+            best_val = scored_targets[0][1]
+            best_options = [t for t, v in scored_targets if v == best_val]
+            r, c = random.choice(best_options)
+
+            # Determine type: Build mine ONLY if it doesn't block expansion (min 1 neighbor still open)
+            expansion_potential = next(v for t, v in scored_targets if t == (r, c))
+
+            if expansion_potential > 1 and random.random() < 0.4:
                 self.game.grid[r][c] = self.game.players[p]['mi']
             else:
                 self.game.grid[r][c] = self.game.players[p]['st']
