@@ -12,7 +12,7 @@ WINDOW_HEIGHT = 550
 
 class MarsMinersGame:
     """Core Game Logic adapted for GUI"""
-    def __init__(self, roles, weapon_req=4, allow_skip=True, ai_wait=500):
+    def __init__(self, roles, weapon_req=4, allow_skip=True, ai_wait=0):
         self.size = GRID_SIZE
         self.grid = [['.' for _ in range(self.size)] for _ in range(self.size)]
         self.roles = roles
@@ -154,13 +154,15 @@ class RoleDialog(wx.Dialog):
 
         # Weapon requirement selection
         main_sizer.Add(wx.StaticText(self, label="Weapon Requirement (Line Length):"), 0, wx.LEFT, 15)
-        self.weapon_req_choice = wx.Choice(self, choices=["3 Stations", "4 Stations"])
+        # Expanded range: 3, 4, 5, 6, 7, 8, 9, 10
+        req_options = [f"{i} Stations" for i in range(3, 11)]
+        self.weapon_req_choice = wx.Choice(self, choices=req_options)
         self.weapon_req_choice.SetSelection(1) # Default to 4
         main_sizer.Add(self.weapon_req_choice, 0, wx.EXPAND | wx.ALL, 15)
 
         # AI Wait Time Selection
         main_sizer.Add(wx.StaticText(self, label="AI Turn Wait Time:"), 0, wx.LEFT, 15)
-        self.ai_wait_choice = wx.Choice(self, choices=["Fast (500ms)", "Medium (1000ms)", "Slow (2000ms)"])
+        self.ai_wait_choice = wx.Choice(self, choices=["ASAP (0ms)", "Fast (500ms)", "Medium (1000ms)", "Slow (2000ms)"])
         self.ai_wait_choice.SetSelection(0)
         main_sizer.Add(self.ai_wait_choice, 0, wx.EXPAND | wx.ALL, 15)
 
@@ -183,10 +185,11 @@ class RoleDialog(wx.Dialog):
         return {i+1: mapping[self.choices[i].GetSelection()] for i in range(4)}
 
     def GetWeaponReq(self):
-        return 3 if self.weapon_req_choice.GetSelection() == 0 else 4
+        # Index 0=3, 1=4, ..., 7=10
+        return self.weapon_req_choice.GetSelection() + 3
 
     def GetAiWait(self):
-        times = [500, 1000, 2000]
+        times = [0, 500, 1000, 2000]
         return times[self.ai_wait_choice.GetSelection()]
 
     def GetAllowSkip(self):
@@ -202,7 +205,7 @@ class GamePanel(wx.Panel):
 
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
-        self.timer.Start(self.game.ai_wait)
+        self.timer.Start(self.game.ai_wait if self.game.ai_wait > 0 else 50)
 
     def OnPaint(self, event):
         dc = wx.AutoBufferedPaintDC(self)
