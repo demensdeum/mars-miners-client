@@ -2,29 +2,28 @@ import wx
 import random
 import time
 
-# Game Constants
-GRID_SIZE = 10
-CELL_SIZE = 50
+# Game Constants (Defaults)
 SYMBOL_FONT_SIZE = 32
 CELL_TOP_OFFSET = 12
-WINDOW_WIDTH = 750
-WINDOW_HEIGHT = 550
+SIDEBAR_WIDTH = 220
 
 class MarsMinersGame:
     """Core Game Logic adapted for GUI"""
-    def __init__(self, roles, weapon_req=4, allow_skip=True, ai_wait=0):
-        self.size = GRID_SIZE
+    def __init__(self, roles, grid_size=10, weapon_req=4, allow_skip=True, ai_wait=0):
+        self.size = grid_size
         self.grid = [['.' for _ in range(self.size)] for _ in range(self.size)]
         self.roles = roles
         self.weapon_req = weapon_req
         self.allow_skip = allow_skip
         self.ai_wait = ai_wait
         self.player_lost = {1: False, 2: False, 3: False, 4: False}
+
+        # Dynamic starting positions based on grid size
         self.players = {
-            1: {'st': '↑', 'mi': '○', 'name': 'P1', 'pos': (0,0), 'color': wx.Colour(255, 100, 100)},
-            2: {'st': '↓', 'mi': '△', 'name': 'P2', 'pos': (9,9), 'color': wx.Colour(100, 255, 100)},
-            3: {'st': '←', 'mi': '□', 'name': 'P3', 'pos': (0,9), 'color': wx.Colour(100, 100, 255)},
-            4: {'st': '→', 'mi': '◇', 'name': 'P4', 'pos': (9,0), 'color': wx.Colour(255, 200, 50)}
+            1: {'st': '↑', 'mi': '○', 'name': 'P1', 'pos': (0, 0), 'color': wx.Colour(255, 100, 100)},
+            2: {'st': '↓', 'mi': '△', 'name': 'P2', 'pos': (self.size - 1, self.size - 1), 'color': wx.Colour(100, 255, 100)},
+            3: {'st': '←', 'mi': '□', 'name': 'P3', 'pos': (0, self.size - 1), 'color': wx.Colour(100, 100, 255)},
+            4: {'st': '→', 'mi': '◇', 'name': 'P4', 'pos': (self.size - 1, 0), 'color': wx.Colour(255, 200, 50)}
         }
 
         # Initialize starting positions
@@ -63,28 +62,23 @@ class MarsMinersGame:
         return max_p
 
     def can_player_move(self, p):
-        """Checks if a player has any possible move (build or shoot)"""
         if self.player_lost[p]:
             return False
 
-        # Check if they can build anywhere
         for r in range(self.size):
             for c in range(self.size):
                 if self.can_build(r, c, p):
                     return True
 
-        # Check if they can shoot (if power requirement met)
         if self.get_line_power(p) >= self.weapon_req:
             for r in range(self.size):
                 for c in range(self.size):
                     cell = self.grid[r][c]
-                    # Can shoot any non-empty cell that isn't already rubble
                     if cell != '.' and cell != '█':
                         return True
         return False
 
     def can_build(self, r, c, p):
-        """Building (Station or Mine) MUST be near a Station of the same player"""
         if not (0 <= r < self.size and 0 <= c < self.size) or self.grid[r][c] != '.':
             return False
 
@@ -99,14 +93,12 @@ class MarsMinersGame:
         return False
 
     def shoot_laser(self, r, c, power):
-        """Fires a precision laser. Destroys the single targeted cell if power is sufficient."""
         if self.grid[r][c] != '.' and self.grid[r][c] != '█':
             self.grid[r][c] = '█'
             return True
         return False
 
     def next_turn(self):
-        # Check if any player still has valid moves
         players_able_to_move = 0
         for p_id in range(1, 5):
             if self.roles[p_id] != 'none' and not self.player_lost[p_id]:
@@ -121,8 +113,6 @@ class MarsMinersGame:
 
         start_turn = self.turn
         self.turn = self.turn % 4 + 1
-
-        # Skip players who are "none" or "lost"
         while self.roles[self.turn] == 'none' or self.player_lost[self.turn]:
             self.turn = self.turn % 4 + 1
             if self.turn == start_turn:
@@ -130,9 +120,9 @@ class MarsMinersGame:
                 break
 
 class RoleDialog(wx.Dialog):
-    """Dialog to select player roles and game rules at the start"""
+    """Dialog to select player roles, map size, and game rules"""
     def __init__(self, parent):
-        super().__init__(parent, title="Mars Expedition Setup", size=(320, 600))
+        super().__init__(parent, title="Mars Expedition Setup", size=(350, 650))
         self.roles = {}
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -152,12 +142,17 @@ class RoleDialog(wx.Dialog):
 
         main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND | wx.ALL, 10)
 
+        # Map Size Selection
+        main_sizer.Add(wx.StaticText(self, label="Map Size:"), 0, wx.LEFT, 15)
+        self.map_size_choice = wx.Choice(self, choices=["10 x 10", "15 x 15", "20 x 20"])
+        self.map_size_choice.SetSelection(0)
+        main_sizer.Add(self.map_size_choice, 0, wx.EXPAND | wx.ALL, 15)
+
         # Weapon requirement selection
         main_sizer.Add(wx.StaticText(self, label="Weapon Requirement (Line Length):"), 0, wx.LEFT, 15)
-        # Expanded range: 3, 4, 5, 6, 7, 8, 9, 10
         req_options = [f"{i} Stations" for i in range(3, 11)]
         self.weapon_req_choice = wx.Choice(self, choices=req_options)
-        self.weapon_req_choice.SetSelection(1) # Default to 4
+        self.weapon_req_choice.SetSelection(1)
         main_sizer.Add(self.weapon_req_choice, 0, wx.EXPAND | wx.ALL, 15)
 
         # AI Wait Time Selection
@@ -184,8 +179,11 @@ class RoleDialog(wx.Dialog):
         mapping = {0: 'human', 1: 'ai', 2: 'none'}
         return {i+1: mapping[self.choices[i].GetSelection()] for i in range(4)}
 
+    def GetMapSize(self):
+        sizes = [10, 15, 20]
+        return sizes[self.map_size_choice.GetSelection()]
+
     def GetWeaponReq(self):
-        # Index 0=3, 1=4, ..., 7=10
         return self.weapon_req_choice.GetSelection() + 3
 
     def GetAiWait(self):
@@ -199,6 +197,7 @@ class GamePanel(wx.Panel):
     def __init__(self, parent, game):
         super().__init__(parent)
         self.game = game
+        self.cell_size = 50 if self.game.size == 10 else (40 if self.game.size == 15 else 30)
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseClick)
@@ -212,19 +211,21 @@ class GamePanel(wx.Panel):
         dc.Clear()
 
         dc.SetPen(wx.Pen(wx.Colour(50, 50, 50), 1))
-        for r in range(GRID_SIZE):
-            for c in range(GRID_SIZE):
-                x, y = c * CELL_SIZE, r * CELL_SIZE
+        for r in range(self.game.size):
+            for c in range(self.game.size):
+                x, y = c * self.cell_size, r * self.cell_size
                 dc.SetBrush(wx.Brush(wx.Colour(30, 30, 30)))
-                dc.DrawRectangle(x, y, CELL_SIZE, CELL_SIZE)
+                dc.DrawRectangle(x, y, self.cell_size, self.cell_size)
 
                 cell = self.game.grid[r][c]
                 if cell != '.':
                     self.draw_cell_content(dc, r, c, cell)
 
     def draw_cell_content(self, dc, r, c, cell):
-        x, y = c * CELL_SIZE, r * CELL_SIZE
-        font = wx.Font(SYMBOL_FONT_SIZE, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        x, y = c * self.cell_size, r * self.cell_size
+        # Adjust font size for larger grids
+        f_size = SYMBOL_FONT_SIZE if self.game.size == 10 else (24 if self.game.size == 15 else 18)
+        font = wx.Font(f_size, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
         dc.SetFont(font)
 
         color = wx.WHITE
@@ -237,13 +238,9 @@ class GamePanel(wx.Panel):
         if cell == 'X': color = wx.RED
 
         dc.SetTextForeground(color)
-
         tw, th = dc.GetTextExtent(cell)
-
-        # Horizontal centering + Fixed Top Offset
-        cx = x + (CELL_SIZE - tw) / 2
-        cy = y + CELL_TOP_OFFSET
-
+        cx = x + (self.cell_size - tw) / 2
+        cy = y + (self.cell_size - th) / 2 # Center vertically as well for variable cell sizes
         dc.DrawText(cell, int(cx), int(cy))
 
     def OnMouseClick(self, event):
@@ -251,9 +248,9 @@ class GamePanel(wx.Panel):
             return
 
         x, y = event.GetPosition()
-        c, r = x // CELL_SIZE, y // CELL_SIZE
+        c, r = x // self.cell_size, y // self.cell_size
 
-        if 0 <= r < GRID_SIZE and 0 <= c < GRID_SIZE:
+        if 0 <= r < self.game.size and 0 <= c < self.game.size:
             is_shift = wx.GetKeyState(wx.WXK_SHIFT)
             cell = self.game.grid[r][c]
 
@@ -298,14 +295,14 @@ class GamePanel(wx.Panel):
         power = self.game.get_line_power(p)
 
         if power >= self.game.weapon_req:
-            for r in range(GRID_SIZE):
-                for c in range(GRID_SIZE):
+            for r in range(self.game.size):
+                for c in range(self.game.size):
                     is_enemy_st = any(self.game.grid[r][c] == pd['st'] for pid, pd in self.game.players.items() if pid != p)
                     if is_enemy_st:
                         if self.game.shoot_laser(r, c, power=power):
                             return
 
-        stations = [(r,c) for r in range(GRID_SIZE) for c in range(GRID_SIZE) if self.game.grid[r][c] == self.game.players[p]['st']]
+        stations = [(r,c) for r in range(self.game.size) for c in range(self.game.size) if self.game.grid[r][c] == self.game.players[p]['st']]
         build_targets = []
         for r_s, c_s in stations:
             for dr, dc in [(-1,0), (1,0), (0,-1), (0,1)]:
@@ -321,22 +318,23 @@ class GamePanel(wx.Panel):
                 self.game.grid[r][c] = self.game.players[p]['st']
 
 class MainFrame(wx.Frame):
-    def __init__(self, roles, weapon_req, allow_skip, ai_wait):
-        super().__init__(None, title="Mars Miners: GUI Edition", size=(WINDOW_WIDTH, WINDOW_HEIGHT))
-        self.start_new_game(roles, weapon_req, allow_skip, ai_wait)
+    def __init__(self, roles, grid_size, weapon_req, allow_skip, ai_wait):
+        super().__init__(None, title="Mars Miners: GUI Edition")
+        self.start_new_game(roles, grid_size, weapon_req, allow_skip, ai_wait)
 
-    def start_new_game(self, roles, weapon_req, allow_skip, ai_wait):
-        self.game = MarsMinersGame(roles, weapon_req, allow_skip, ai_wait)
+    def start_new_game(self, roles, grid_size, weapon_req, allow_skip, ai_wait):
+        self.game = MarsMinersGame(roles, grid_size, weapon_req, allow_skip, ai_wait)
         self.DestroyChildren()
 
         panel = wx.Panel(self)
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         self.game_panel = GamePanel(panel, self.game)
-        self.game_panel.SetMinSize((GRID_SIZE * CELL_SIZE, GRID_SIZE * CELL_SIZE))
+        grid_pixel_size = self.game.size * self.game_panel.cell_size
+        self.game_panel.SetMinSize((grid_pixel_size, grid_pixel_size))
 
         sidebar = wx.BoxSizer(wx.VERTICAL)
-        sidebar.SetMinSize((200, -1))
+        sidebar.SetMinSize((SIDEBAR_WIDTH, -1))
 
         self.status_label = wx.StaticText(panel, label="Initializing...")
         self.score_labels = []
@@ -380,6 +378,9 @@ class MainFrame(wx.Frame):
 
         panel.SetSizer(main_sizer)
         self.UpdateStatus()
+
+        # Adjust frame size to fit grid + sidebar
+        self.SetClientSize((grid_pixel_size + SIDEBAR_WIDTH + 40, grid_pixel_size + 20))
         self.Layout()
         self.Centre()
         self.Show()
@@ -400,11 +401,12 @@ class MainFrame(wx.Frame):
             role_dlg = RoleDialog(self)
             if role_dlg.ShowModal() == wx.ID_OK:
                 new_roles = role_dlg.GetRoles()
+                new_size = role_dlg.GetMapSize()
                 new_req = role_dlg.GetWeaponReq()
                 new_wait = role_dlg.GetAiWait()
                 new_skip = role_dlg.GetAllowSkip()
                 role_dlg.Destroy()
-                self.start_new_game(new_roles, new_req, new_skip, new_wait)
+                self.start_new_game(new_roles, new_size, new_req, new_skip, new_wait)
             else:
                 role_dlg.Destroy()
         dlg.Destroy()
@@ -444,11 +446,12 @@ if __name__ == "__main__":
     dlg = RoleDialog(None)
     if dlg.ShowModal() == wx.ID_OK:
         roles = dlg.GetRoles()
+        size = dlg.GetMapSize()
         req = dlg.GetWeaponReq()
         wait = dlg.GetAiWait()
         skip = dlg.GetAllowSkip()
         dlg.Destroy()
-        MainFrame(roles, req, skip, wait)
+        MainFrame(roles, size, req, skip, wait)
         app.MainLoop()
     else:
         dlg.Destroy()
