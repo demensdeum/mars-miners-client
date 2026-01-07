@@ -14,7 +14,6 @@ export default function SetupScreen() {
     const [roles, setRoles] = useState<Record<PlayerId, PlayerRole>>({
         1: 'human', 2: 'ai', 3: 'none', 4: 'none'
     });
-    const [mapSize, setMapSize] = useState(10);
     const [weaponReq, setWeaponReq] = useState(4);
     const [allowSkip, setAllowSkip] = useState(true);
 
@@ -25,11 +24,6 @@ export default function SetupScreen() {
             ...prev,
             [pid]: opts[(opts.indexOf(prev[pid]) + 1) % opts.length]
         }));
-    };
-
-    const cycleMapSize = () => {
-        const sizes = [10, 15, 20];
-        setMapSize(s => sizes[(sizes.indexOf(s) + 1) % sizes.length]);
     };
 
     const cycleWeaponReq = () => {
@@ -48,7 +42,6 @@ export default function SetupScreen() {
                     const config = JSON.parse(saved);
                     // Do not load lang, strictly use device locale
                     if (config.roles) setRoles(config.roles);
-                    if (config.mapSize) setMapSize(config.mapSize);
                     if (config.weaponReq) setWeaponReq(config.weaponReq);
                     if (config.allowSkip !== undefined) setAllowSkip(config.allowSkip);
                 }
@@ -63,11 +56,11 @@ export default function SetupScreen() {
     // Auto-save on change
     useEffect(() => {
         if (!loaded) return;
-        const config = { roles, mapSize, weaponReq, allowSkip };
+        const config = { roles, weaponReq, allowSkip };
         AsyncStorage.setItem('mm_setup_config', JSON.stringify(config)).catch(e => {
             console.log('Failed to save settings', e);
         });
-    }, [loaded, roles, mapSize, weaponReq, allowSkip]);
+    }, [loaded, roles, weaponReq, allowSkip]);
 
     const startGame = () => {
         // Pass config to game screen.
@@ -75,7 +68,7 @@ export default function SetupScreen() {
             pathname: '/game',
             params: {
                 roles: JSON.stringify(roles),
-                grid_size: mapSize,
+                grid_size: 10,
                 weapon_req: weaponReq,
                 allow_skip: allowSkip ? '1' : '0',
                 ai_wait: 500, // Fixed 1000ms
@@ -106,13 +99,6 @@ export default function SetupScreen() {
                 })}
 
                 <View style={styles.divider} />
-
-                <View style={styles.row}>
-                    <Text style={styles.label}>{t('map_size', lang)}</Text>
-                    <TouchableOpacity onPress={cycleMapSize} style={styles.button}>
-                        <Text style={styles.buttonText}>{mapSize} x {mapSize}</Text>
-                    </TouchableOpacity>
-                </View>
 
                 <View style={styles.row}>
                     <Text style={styles.label}>{t('weapon_req', lang)}</Text>
