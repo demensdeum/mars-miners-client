@@ -258,18 +258,11 @@ export class MarsMinersGame {
             return;
         }
 
-        // Advance turn
+        // Advance turn to next valid player
         const startTurn = this.turn;
-        this.turn = (this.turn % 4 + 1) as PlayerId;
-
-        // Loop until valid player or looped back
-        while (this.roles[this.turn] === 'none' || this.player_lost[this.turn]) {
+        do {
             this.turn = (this.turn % 4 + 1) as PlayerId;
-            if (this.turn === startTurn) {
-                this.game_over = true;
-                break;
-            }
-        }
+        } while ((this.roles[this.turn] === 'none' || this.player_lost[this.turn]) && this.turn !== startTurn);
     }
 
     aiMove() {
