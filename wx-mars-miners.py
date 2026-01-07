@@ -81,6 +81,44 @@ class MarsMinersGame:
             curr_r, curr_c = curr_r + dr, curr_c + dc
         return hits > 0
 
+    def destroy_line(self, r, c, vertical=False):
+        """Logic to destroy a line of enemy stations"""
+        target_st = self.grid[r][c]
+        # Check if it's an enemy station
+        is_enemy_st = any(target_st == p['st'] for pid, p in self.players.items() if pid != self.turn)
+        if not is_enemy_st:
+            return False
+
+        to_destroy = [(r, c)]
+        if vertical:
+            # Check up
+            curr_r = r - 1
+            while curr_r >= 0 and self.grid[curr_r][c] == target_st:
+                to_destroy.append((curr_r, c))
+                curr_r -= 1
+            # Check down
+            curr_r = r + 1
+            while curr_r < self.size and self.grid[curr_r][c] == target_st:
+                to_destroy.append((curr_r, c))
+                curr_r += 1
+        else:
+            # Check left
+            curr_c = c - 1
+            while curr_c >= 0 and self.grid[r][curr_c] == target_st:
+                to_destroy.append((r, curr_c))
+                curr_c -= 1
+            # Check right
+            curr_c = c + 1
+            while curr_c < self.size and self.grid[r][curr_c] == target_st:
+                to_destroy.append((r, curr_c))
+                curr_c += 1
+
+        if len(to_destroy) > 1:
+            for dr, dc in to_destroy:
+                self.grid[dr][dc] = '█'
+            return True
+        return False
+
     def next_turn(self):
         if not any('.' in row for row in self.grid):
             self.game_over = True
@@ -190,16 +228,24 @@ class GamePanel(wx.Panel):
         c, r = x // CELL_SIZE, y // CELL_SIZE
 
         if 0 <= r < GRID_SIZE and 0 <= c < GRID_SIZE:
-            # Shift key for Mines, otherwise Station
-            is_mine = wx.GetKeyState(wx.WXK_SHIFT)
-            if is_mine:
-                if self.game.can_build(r, c, self.game.turn, True):
-                    self.game.grid[r][c] = self.game.players[self.game.turn]['mi']
+            is_shift = wx.GetKeyState(wx.WXK_SHIFT)
+            cell = self.game.grid[r][c]
+
+            # 1. Logic for attacking enemy stations
+            if any(cell == p['st'] for pid, p in self.game.players.items() if pid != self.game.turn):
+                if self.game.destroy_line(r, c, vertical=is_shift):
                     self.game.next_turn()
-            else:
-                if self.game.can_build(r, c, self.game.turn):
-                    self.game.grid[r][c] = self.game.players[self.game.turn]['st']
-                    self.game.next_turn()
+
+            # 2. Logic for building (only if cell is empty)
+            elif cell == '.':
+                if is_shift:
+                    if self.game.can_build(r, c, self.game.turn, True):
+                        self.game.grid[r][c] = self.game.players[self.game.turn]['mi']
+                        self.game.next_turn()
+                else:
+                    if self.game.can_build(r, c, self.game.turn):
+                        self.game.grid[r][c] = self.game.players[self.game.turn]['st']
+                        self.game.next_turn()
 
             self.Refresh()
             top_level = wx.GetTopLevelParent(self)
