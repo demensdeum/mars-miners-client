@@ -38,7 +38,7 @@ export const LOCALE = {
         'assign_roles': "Назначьте роли:",
         'player': "Игрок", 'human': "Человек", 'ai': "ИИ", 'none': "Нет",
         'player_1': "Игрок 1", 'player_2': "Игрок 2", 'player_3': "Игрок 3", 'player_4': "Игрок 4",
-        'map_size': "Размер карты:", 'weapon_req': "Длина оружия:",
+        'map_size': "Размер карты:", 'weapon_req': "Длина орудия:",
         'stations': "Станций", 'ai_wait': "Задержка ИИ:",
         'asap': "0мс", 'fast': "500мс", 'med': "1000мс", 'slow': "2000мс",
         'allow_skip': "Пропуск хода", 'start_btn': "Начать",
