@@ -36,6 +36,7 @@ LOCALE = {
         'abandon_msg': "Are you sure you want to abandon the current mission?",
         'abandon_title': "Abandon Mission", 'exit_msg': "Exit game?", 'exit_title': "Exit",
         'lang_label': "Language / Язык:",
+        'highlight_weapon': "Highlight weapons",
     },
     'ru': {
         'build_mode': "РЕЖИМ СТРОЙКИ:",
@@ -63,6 +64,7 @@ LOCALE = {
         'abandon_msg': "Прервать миссию?", 'abandon_title': "Прервать",
         'exit_msg': "Выйти?", 'exit_title': "Выход",
         'lang_label': "Язык:",
+        'highlight_weapon': "Подсветка орудий",
     }
 }
 
@@ -75,6 +77,7 @@ class MarsMinersGame:
         self.allow_skip = allow_skip
         self.ai_wait = ai_wait
         self.lang = lang
+        self.highlight_weapon = True
         self.player_lost = {1: False, 2: False, 3: False, 4: False}
 
         self.players = {
@@ -107,7 +110,7 @@ class MarsMinersGame:
             "size": self.size, "grid": self.grid, "roles": {str(k): v for k, v in self.roles.items()},
             "weapon_req": self.weapon_req, "allow_skip": self.allow_skip, "ai_wait": self.ai_wait,
             "lang": self.lang, "turn": self.turn, "player_lost": {str(k): v for k, v in self.player_lost.items()},
-            "game_over": self.game_over
+            "game_over": self.game_over, "highlight_weapon": self.highlight_weapon
         }
 
     def from_dict(self, data):
@@ -116,6 +119,7 @@ class MarsMinersGame:
         self.allow_skip, self.ai_wait, self.lang = data["allow_skip"], data["ai_wait"], data.get("lang", "en")
         self.turn, self.game_over = data["turn"], data["game_over"]
         self.player_lost = {int(k): v for k, v in data["player_lost"].items()}
+        self.highlight_weapon = data.get("highlight_weapon", True)
 
     def get_scores(self):
         return {p: sum(row.count(self.players[p]['mi']) for row in self.grid)
@@ -306,8 +310,8 @@ class GamePanel(wx.Panel):
         dc = wx.AutoBufferedPaintDC(self)
         dc.Clear()
 
-        # Determine which cells are part of a weapon line
-        weapon_cells = self.game.get_weapon_cells()
+        # Determine which cells are part of a weapon line if highlighting is enabled
+        weapon_cells = self.game.get_weapon_cells() if self.game.highlight_weapon else set()
 
         for r in range(self.game.size):
             for c in range(self.game.size):
@@ -317,7 +321,7 @@ class GamePanel(wx.Panel):
                 # Default background
                 bg_color = wx.Colour(30, 30, 30)
 
-                # Highlight if part of a weapon
+                # Highlight if part of a weapon and feature is on
                 if (r, c) in weapon_cells:
                     # Gold/Amber highlight for formed weapons
                     bg_color = wx.Colour(80, 70, 20)
@@ -424,6 +428,13 @@ class MainFrame(wx.Frame):
         sidebar.Add(self.btn_st, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
         sidebar.Add(self.btn_mi, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 5)
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 10)
+
+        # Highlight Checkbox
+        self.cb_highlight = wx.CheckBox(panel, label=self.game.t('highlight_weapon'))
+        self.cb_highlight.SetValue(self.game.highlight_weapon)
+        self.cb_highlight.Bind(wx.EVT_CHECKBOX, self.OnToggleHighlight)
+        sidebar.Add(self.cb_highlight, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
         self.status_label = wx.StaticText(panel, label=self.game.t('initializing'))
         sidebar.Add(self.status_label, 0, wx.ALL, 10)
         self.btn_skip = wx.Button(panel, label=self.game.t('skip_turn'))
@@ -450,6 +461,10 @@ class MainFrame(wx.Frame):
         main_sizer.Add(sidebar, 0, wx.EXPAND | wx.ALL, 10)
         panel.SetSizer(main_sizer); self.SetBuildMode('st'); self.UpdateStatus()
         self.SetClientSize((gp_size + SIDEBAR_WIDTH + 40, gp_size + 20)); self.Layout(); self.Centre(); self.Show()
+
+    def OnToggleHighlight(self, event):
+        self.game.highlight_weapon = self.cb_highlight.GetValue()
+        self.game_panel.Refresh()
 
     def SetBuildMode(self, mode):
         self.game_panel.build_mode = mode
