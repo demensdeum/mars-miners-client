@@ -99,13 +99,13 @@ export default function GameScreen() {
 
     // Quit/Back
     const handleBack = () => {
-        router.replace('/');
+        router.back();
     };
 
     // Handle modal OK button
     const handleModalOk = () => {
         setShowGameOverModal(false);
-        router.replace('/');
+        router.back();
     };
 
 
