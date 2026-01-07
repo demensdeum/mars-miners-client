@@ -10,11 +10,12 @@ WINDOW_HEIGHT = 550
 
 class MarsMinersGame:
     """Core Game Logic adapted for GUI"""
-    def __init__(self, roles, weapon_req=4):
+    def __init__(self, roles, weapon_req=4, allow_skip=True):
         self.size = GRID_SIZE
         self.grid = [['.' for _ in range(self.size)] for _ in range(self.size)]
         self.roles = roles
-        self.weapon_req = weapon_req  # New dynamic requirement
+        self.weapon_req = weapon_req
+        self.allow_skip = allow_skip
         self.player_lost = {1: False, 2: False, 3: False, 4: False}
         self.players = {
             1: {'st': '↑', 'mi': '○', 'name': 'P1', 'pos': (0,0), 'color': wx.Colour(255, 100, 100)},
@@ -128,7 +129,7 @@ class MarsMinersGame:
 class RoleDialog(wx.Dialog):
     """Dialog to select player roles and game rules at the start"""
     def __init__(self, parent):
-        super().__init__(parent, title="Mars Expedition Setup", size=(320, 480))
+        super().__init__(parent, title="Mars Expedition Setup", size=(320, 520))
         self.roles = {}
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -154,6 +155,11 @@ class RoleDialog(wx.Dialog):
         self.weapon_req_choice.SetSelection(1) # Default to 4
         main_sizer.Add(self.weapon_req_choice, 0, wx.EXPAND | wx.ALL, 15)
 
+        # Skip option toggle
+        self.skip_checkbox = wx.CheckBox(self, label="Allow manual Turn Skip")
+        self.skip_checkbox.SetValue(True)
+        main_sizer.Add(self.skip_checkbox, 0, wx.EXPAND | wx.ALL, 15)
+
         btn_sizer = wx.StdDialogButtonSizer()
         start_btn = wx.Button(self, wx.ID_OK, label="Start Mission")
         btn_sizer.AddButton(start_btn)
@@ -169,6 +175,9 @@ class RoleDialog(wx.Dialog):
 
     def GetWeaponReq(self):
         return 3 if self.weapon_req_choice.GetSelection() == 0 else 4
+
+    def GetAllowSkip(self):
+        return self.skip_checkbox.GetValue()
 
 class GamePanel(wx.Panel):
     def __init__(self, parent, game):
@@ -199,7 +208,8 @@ class GamePanel(wx.Panel):
 
     def draw_cell_content(self, dc, r, c, cell):
         x, y = c * CELL_SIZE, r * CELL_SIZE
-        font = wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        # High quality font for symbols
+        font = wx.Font(24, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
         dc.SetFont(font)
 
         color = wx.WHITE
@@ -212,8 +222,16 @@ class GamePanel(wx.Panel):
         if cell == 'X': color = wx.RED
 
         dc.SetTextForeground(color)
-        tw, th = dc.GetTextExtent(cell)
-        dc.DrawText(cell, x + (CELL_SIZE - tw)//2, y + (CELL_SIZE - th)//2)
+
+        # Using GetFullTextExtent for precise centering including descent
+        tw, th, descent, leading = dc.GetFullTextExtent(cell)
+
+        # Horizontal centering is calculated normally
+        cx = x + (CELL_SIZE - tw) / 2
+        # Fixed top offset of 6 pixels requested
+        cy = y + 14
+
+        dc.DrawText(cell, int(cx), int(cy))
 
     def OnMouseClick(self, event):
         if self.game.roles.get(self.game.turn) != 'human' or self.game.game_over:
@@ -290,12 +308,12 @@ class GamePanel(wx.Panel):
                 self.game.grid[r][c] = self.game.players[p]['st']
 
 class MainFrame(wx.Frame):
-    def __init__(self, roles, weapon_req):
+    def __init__(self, roles, weapon_req, allow_skip):
         super().__init__(None, title="Mars Miners: GUI Edition", size=(WINDOW_WIDTH, WINDOW_HEIGHT))
-        self.start_new_game(roles, weapon_req)
+        self.start_new_game(roles, weapon_req, allow_skip)
 
-    def start_new_game(self, roles, weapon_req):
-        self.game = MarsMinersGame(roles, weapon_req)
+    def start_new_game(self, roles, weapon_req, allow_skip):
+        self.game = MarsMinersGame(roles, weapon_req, allow_skip)
         self.DestroyChildren()
 
         panel = wx.Panel(self)
@@ -317,6 +335,9 @@ class MainFrame(wx.Frame):
         self.btn_skip = wx.Button(panel, label="Skip Turn")
         self.btn_skip.Bind(wx.EVT_BUTTON, self.OnSkipTurn)
         sidebar.Add(self.btn_skip, 0, wx.ALL | wx.EXPAND, 10)
+
+        if not allow_skip:
+            self.btn_skip.Hide()
 
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
 
@@ -370,8 +391,9 @@ class MainFrame(wx.Frame):
             if role_dlg.ShowModal() == wx.ID_OK:
                 new_roles = role_dlg.GetRoles()
                 new_req = role_dlg.GetWeaponReq()
+                new_skip = role_dlg.GetAllowSkip()
                 role_dlg.Destroy()
-                self.start_new_game(new_roles, new_req)
+                self.start_new_game(new_roles, new_req, new_skip)
             else:
                 role_dlg.Destroy()
         dlg.Destroy()
@@ -414,8 +436,9 @@ if __name__ == "__main__":
     if dlg.ShowModal() == wx.ID_OK:
         roles = dlg.GetRoles()
         req = dlg.GetWeaponReq()
+        skip = dlg.GetAllowSkip()
         dlg.Destroy()
-        MainFrame(roles, req)
+        MainFrame(roles, req, skip)
         app.MainLoop()
     else:
         dlg.Destroy()
