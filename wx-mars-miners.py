@@ -184,7 +184,6 @@ class GamePanel(wx.Panel):
             # Logic for attacking enemy (Station ONLY)
             enemy_id = None
             for pid, p_data in self.game.players.items():
-                # Removed 'mi' from attackable targets
                 if cell == p_data['st'] and pid != self.game.turn:
                     enemy_id = pid
                     break
@@ -194,13 +193,14 @@ class GamePanel(wx.Panel):
                 print(f"[VERBOSE] Target: Player {enemy_id} station at ({r}, {c})")
                 print(f"[VERBOSE] Attacker: Player {self.game.turn} | Power Level: {power}")
 
-                if power >= 2:
+                # Updated Requirement: Power must be at least 3 (3 stations in a line)
+                if power >= 3:
                     print(f"[VERBOSE] Firing Precision Laser...")
                     if self.game.shoot_laser(r, c, power=power):
                         print(f"[VERBOSE] SUCCESS: Station destroyed.")
                         self.game.next_turn()
                 else:
-                    print(f"[VERBOSE] INSUFFICIENT POWER: Need at least 2 stations in a line.")
+                    print(f"[VERBOSE] INSUFFICIENT POWER: Need at least 3 stations in a line to attack.")
 
             # Logic for building
             elif cell == '.':
@@ -231,8 +231,8 @@ class GamePanel(wx.Panel):
         p = self.game.turn
         power = self.game.get_line_power(p)
 
-        # AI Laser logic: target enemy stations only
-        if power >= 2:
+        # AI Laser logic: target enemy stations only if power >= 3
+        if power >= 3:
             for r in range(GRID_SIZE):
                 for c in range(GRID_SIZE):
                     is_enemy_st = any(self.game.grid[r][c] == pd['st'] for pid, pd in self.game.players.items() if pid != p)
@@ -299,7 +299,7 @@ class MainFrame(wx.Frame):
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
         sidebar.Add(wx.StaticText(panel, label="Attack Enemy:"), 0, wx.ALL, 2)
         sidebar.Add(wx.StaticText(panel, label="L-Click enemy station"), 0, wx.ALL, 2)
-        sidebar.Add(wx.StaticText(panel, label="(Requires 2+ Stations in line)"), 0, wx.ALL, 2)
+        sidebar.Add(wx.StaticText(panel, label="(Requires 3+ Stations in line)"), 0, wx.ALL, 2)
 
         main_sizer.Add(self.game_panel, 1, wx.EXPAND | wx.ALL, 10)
         main_sizer.Add(sidebar, 0, wx.EXPAND | wx.ALL, 10)
@@ -331,7 +331,7 @@ class MainFrame(wx.Frame):
             p_data = self.game.players.get(self.game.turn)
             if p_data:
                 power = self.game.get_line_power(self.game.turn)
-                charge = f"READY ({power})" if power >= 2 else "CHARGING"
+                charge = f"READY ({power})" if power >= 3 else f"CHARGING ({power}/3)"
                 self.status_label.SetLabel(f"TURN: {p_data['name']}\nLASER: {charge}")
 
         scores = self.game.get_scores()
