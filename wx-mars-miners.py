@@ -4,21 +4,16 @@ import time
 import json
 import math
 
-# ---  ---
-
-# Game Constants (Defaults)
+# --- Constants ---
 SYMBOL_FONT_SIZE = 32
 CELL_TOP_OFFSET = 12
 SIDEBAR_WIDTH = 220
 
-# Localization Updates
 LOCALE = {
     'en': {
-        # ... (previous keys)
         'build_mode': "BUILD MODE:",
         'station_btn': "Station (Path)",
         'mine_btn': "Mine (Points)",
-        # Adding missing keys from your snippet for completeness
         'title': "Mars Miners: GUI Edition",
         'setup_title': "Mars Expedition Setup",
         'assign_roles': "Assign Roles for Players:",
@@ -71,9 +66,7 @@ LOCALE = {
     }
 }
 
-# ... [MarsMinersGame class remains the same as your provided code] ...
 class MarsMinersGame:
-    """Core Game Logic adapted for GUI"""
     def __init__(self, roles, grid_size=10, weapon_req=4, allow_skip=True, ai_wait=0, lang='en'):
         self.size = grid_size
         self.grid = [['.' for _ in range(self.size)] for _ in range(self.size)]
@@ -123,16 +116,44 @@ class MarsMinersGame:
         self.allow_skip, self.ai_wait, self.lang = data["allow_skip"], data["ai_wait"], data.get("lang", "en")
         self.turn, self.game_over = data["turn"], data["game_over"]
         self.player_lost = {int(k): v for k, v in data["player_lost"].items()}
-        self.players = {
-            1: {'st': '↑', 'mi': '○', 'name': 'P1', 'pos': (0, 0), 'color': wx.Colour(255, 100, 100)},
-            2: {'st': '↓', 'mi': '△', 'name': 'P2', 'pos': (self.size - 1, self.size - 1), 'color': wx.Colour(100, 255, 100)},
-            3: {'st': '←', 'mi': '□', 'name': 'P3', 'pos': (0, self.size - 1), 'color': wx.Colour(100, 100, 255)},
-            4: {'st': '→', 'mi': '◇', 'name': 'P4', 'pos': (self.size - 1, 0), 'color': wx.Colour(255, 200, 50)}
-        }
 
     def get_scores(self):
         return {p: sum(row.count(self.players[p]['mi']) for row in self.grid)
                 for p in self.players if self.roles.get(p) != 'none'}
+
+    def get_weapon_cells(self):
+        """Returns a set of (r, c) tuples that are part of a formed weapon line."""
+        weapon_cells = set()
+        for p_id in range(1, 5):
+            if self.roles[p_id] == 'none': continue
+            st = self.players[p_id]['st']
+
+            # Check Rows
+            for r in range(self.size):
+                cur_line = []
+                for c in range(self.size):
+                    if self.grid[r][c] == st:
+                        cur_line.append((r, c))
+                    else:
+                        if len(cur_line) >= self.weapon_req:
+                            weapon_cells.update(cur_line)
+                        cur_line = []
+                if len(cur_line) >= self.weapon_req:
+                    weapon_cells.update(cur_line)
+
+            # Check Columns
+            for c in range(self.size):
+                cur_line = []
+                for r in range(self.size):
+                    if self.grid[r][c] == st:
+                        cur_line.append((r, c))
+                    else:
+                        if len(cur_line) >= self.weapon_req:
+                            weapon_cells.update(cur_line)
+                        cur_line = []
+                if len(cur_line) >= self.weapon_req:
+                    weapon_cells.update(cur_line)
+        return weapon_cells
 
     def get_line_power(self, p):
         st, max_p = self.players[p]['st'], 0
@@ -181,7 +202,6 @@ class MarsMinersGame:
             self.turn = self.turn % 4 + 1
             if self.turn == start_turn: self.game_over = True; break
 
-# ... [RoleDialog class remains the same] ...
 class RoleDialog(wx.Dialog):
     def __init__(self, parent, current_lang='en'):
         self.lang = current_lang
@@ -190,7 +210,6 @@ class RoleDialog(wx.Dialog):
         self.cached_weapon_idx = 1
         self.cached_wait_idx = 0
         self.cached_skip = True
-
         super().__init__(parent, title=self.t('setup_title'), size=(400, 720))
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.init_ui()
@@ -199,9 +218,7 @@ class RoleDialog(wx.Dialog):
         return LOCALE[self.lang].get(key, key)
 
     def init_ui(self):
-        if self.GetSizer():
-            self.GetSizer().Clear(True)
-
+        if self.GetSizer(): self.GetSizer().Clear(True)
         main_sizer = wx.BoxSizer(wx.VERTICAL)
         lang_panel = wx.Panel(self)
         lang_panel.SetBackgroundColour(wx.Colour(50, 50, 50))
@@ -215,7 +232,6 @@ class RoleDialog(wx.Dialog):
         lang_inner_sizer.Add(self.lang_choice, 1, wx.ALL | wx.CENTER, 10)
         lang_panel.SetSizer(lang_inner_sizer)
         main_sizer.Add(lang_panel, 0, wx.EXPAND | wx.BOTTOM, 10)
-
         main_sizer.Add(wx.StaticText(self, label=self.t('assign_roles')), 0, wx.ALL | wx.CENTER, 5)
         self.role_choices = []
         role_opts = [self.t('human'), self.t('ai'), self.t('none')]
@@ -231,27 +247,22 @@ class RoleDialog(wx.Dialog):
             hbox.Add(choice, 1, wx.EXPAND | wx.ALL, 5)
             self.role_choices.append(choice)
             main_sizer.Add(hbox, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
-
         main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND | wx.ALL, 10)
         main_sizer.Add(wx.StaticText(self, label=self.t('map_size')), 0, wx.LEFT, 15)
         self.map_size_choice = wx.Choice(self, choices=["10 x 10", "15 x 15", "20 x 20"])
         self.map_size_choice.SetSelection(self.cached_size_idx)
         main_sizer.Add(self.map_size_choice, 0, wx.EXPAND | wx.ALL, 15)
-
         main_sizer.Add(wx.StaticText(self, label=self.t('weapon_req')), 0, wx.LEFT, 15)
         self.weapon_req_choice = wx.Choice(self, choices=[f"{i} {self.t('stations')}" for i in range(3, 11)])
         self.weapon_req_choice.SetSelection(self.cached_weapon_idx)
         main_sizer.Add(self.weapon_req_choice, 0, wx.EXPAND | wx.ALL, 15)
-
         main_sizer.Add(wx.StaticText(self, label=self.t('ai_wait')), 0, wx.LEFT, 15)
         self.ai_wait_choice = wx.Choice(self, choices=[self.t('asap'), self.t('fast'), self.t('med'), self.t('slow')])
         self.ai_wait_choice.SetSelection(self.cached_wait_idx)
         main_sizer.Add(self.ai_wait_choice, 0, wx.EXPAND | wx.ALL, 15)
-
         self.skip_checkbox = wx.CheckBox(self, label=self.t('allow_skip'))
         self.skip_checkbox.SetValue(self.cached_skip)
         main_sizer.Add(self.skip_checkbox, 0, wx.EXPAND | wx.ALL, 15)
-
         btn_sizer = wx.StdDialogButtonSizer()
         btn_sizer.AddButton(wx.Button(self, wx.ID_OK, label=self.t('start_btn')))
         btn_sizer.Realize()
@@ -260,17 +271,13 @@ class RoleDialog(wx.Dialog):
         self.SetSizer(main_sizer); self.Layout()
 
     def OnLangChange(self, event):
-        self.cached_roles = self.GetRoles()
-        self.cached_size_idx = self.map_size_choice.GetSelection()
-        self.cached_weapon_idx = self.weapon_req_choice.GetSelection()
-        self.cached_wait_idx = self.ai_wait_choice.GetSelection()
+        self.cached_roles = self.GetRoles(); self.cached_size_idx = self.map_size_choice.GetSelection()
+        self.cached_weapon_idx = self.weapon_req_choice.GetSelection(); self.cached_wait_idx = self.ai_wait_choice.GetSelection()
         self.cached_skip = self.skip_checkbox.GetValue()
         self.lang = 'en' if self.lang_choice.GetSelection() == 0 else 'ru'
         self.SetTitle(self.t('setup_title')); self.init_ui()
 
-    def OnClose(self, event):
-        self.EndModal(wx.ID_CANCEL)
-
+    def OnClose(self, event): self.EndModal(wx.ID_CANCEL)
     def GetRoles(self):
         mapping = {0: 'human', 1: 'ai', 2: 'none'}
         return {i+1: mapping[self.role_choices[i].GetSelection()] for i in range(4)}
@@ -283,7 +290,7 @@ class GamePanel(wx.Panel):
     def __init__(self, parent, game):
         super().__init__(parent)
         self.game = game
-        self.build_mode = 'st'  # 'st' for Station, 'mi' for Mine
+        self.build_mode = 'st'
         self.update_ui_params()
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.Bind(wx.EVT_PAINT, self.OnPaint)
@@ -298,12 +305,26 @@ class GamePanel(wx.Panel):
     def OnPaint(self, event):
         dc = wx.AutoBufferedPaintDC(self)
         dc.Clear()
-        dc.SetPen(wx.Pen(wx.Colour(50, 50, 50), 1))
+
+        # Determine which cells are part of a weapon line
+        weapon_cells = self.game.get_weapon_cells()
+
         for r in range(self.game.size):
             for c in range(self.game.size):
                 x, y = c * self.cell_size, r * self.cell_size
-                dc.SetBrush(wx.Brush(wx.Colour(30, 30, 30)))
+                dc.SetPen(wx.Pen(wx.Colour(50, 50, 50), 1))
+
+                # Default background
+                bg_color = wx.Colour(30, 30, 30)
+
+                # Highlight if part of a weapon
+                if (r, c) in weapon_cells:
+                    # Gold/Amber highlight for formed weapons
+                    bg_color = wx.Colour(80, 70, 20)
+
+                dc.SetBrush(wx.Brush(bg_color))
                 dc.DrawRectangle(x, y, self.cell_size, self.cell_size)
+
                 cell = self.game.grid[r][c]
                 if cell != '.': self.draw_cell_content(dc, r, c, cell)
 
@@ -332,14 +353,12 @@ class GamePanel(wx.Panel):
             for pid, p_data in self.game.players.items():
                 if cell == p_data['st'] and pid != self.game.turn:
                     enemy_id = pid; break
-
             if enemy_id:
                 power = self.game.get_line_power(self.game.turn)
                 if power >= self.game.weapon_req:
                     if self.game.shoot_laser(r, c, power=power): self.game.next_turn()
             elif cell == '.':
                 if self.game.can_build(r, c, self.game.turn):
-                    # Use panel's build_mode unless Shift is held
                     mode = 'mi' if is_shift else self.build_mode
                     self.game.grid[r][c] = self.game.players[self.game.turn][mode]
                     self.game.next_turn()
@@ -397,26 +416,19 @@ class MainFrame(wx.Frame):
         gp_size = self.game.size * self.game_panel.cell_size
         self.game_panel.SetMinSize((gp_size, gp_size))
         sidebar = wx.BoxSizer(wx.VERTICAL); sidebar.SetMinSize((SIDEBAR_WIDTH, -1))
-
-        # --- NEW BUILD BUTTONS ---
         sidebar.Add(wx.StaticText(panel, label=self.game.t('build_mode')), 0, wx.ALL, 5)
         self.btn_st = wx.Button(panel, label=self.game.t('station_btn'))
         self.btn_mi = wx.Button(panel, label=self.game.t('mine_btn'))
-
         self.btn_st.Bind(wx.EVT_BUTTON, lambda e: self.SetBuildMode('st'))
         self.btn_mi.Bind(wx.EVT_BUTTON, lambda e: self.SetBuildMode('mi'))
-
         sidebar.Add(self.btn_st, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
         sidebar.Add(self.btn_mi, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 5)
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 10)
-        # -------------------------
-
         self.status_label = wx.StaticText(panel, label=self.game.t('initializing'))
         sidebar.Add(self.status_label, 0, wx.ALL, 10)
         self.btn_skip = wx.Button(panel, label=self.game.t('skip_turn'))
         self.btn_skip.Bind(wx.EVT_BUTTON, self.OnSkipTurn); sidebar.Add(self.btn_skip, 0, wx.ALL | wx.EXPAND, 10)
         if not self.game.allow_skip: self.btn_skip.Hide()
-
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
         self.score_labels = []
         for i in range(1, 5):
@@ -424,31 +436,23 @@ class MainFrame(wx.Frame):
                 lbl = wx.StaticText(panel, label="")
                 lbl.SetForegroundColour(self.game.players[i]['color'])
                 self.score_labels.append((i, lbl)); sidebar.Add(lbl, 0, wx.LEFT | wx.RIGHT | wx.TOP, 5)
-
         sidebar.AddStretchSpacer();
         btn_save = wx.Button(panel, label=self.game.t('save'))
         btn_save.Bind(wx.EVT_BUTTON, self.OnSaveGame); sidebar.Add(btn_save, 0, wx.ALL | wx.EXPAND, 5)
         btn_load = wx.Button(panel, label=self.game.t('load'))
         btn_load.Bind(wx.EVT_BUTTON, self.OnLoadGame); sidebar.Add(btn_load, 0, wx.ALL | wx.EXPAND, 5)
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
-
         btn_restart = wx.Button(panel, label=self.game.t('restart_game'))
         btn_restart.Bind(wx.EVT_BUTTON, self.OnRestartGame); sidebar.Add(btn_restart, 0, wx.ALL | wx.EXPAND, 5)
-
         btn_new_game = wx.Button(panel, label=self.game.t('new_game'))
         btn_new_game.Bind(wx.EVT_BUTTON, self.OnNewGameRequest); sidebar.Add(btn_new_game, 0, wx.ALL | wx.EXPAND, 5)
-
         main_sizer.Add(self.game_panel, 1, wx.EXPAND | wx.ALL, 10)
         main_sizer.Add(sidebar, 0, wx.EXPAND | wx.ALL, 10)
-        panel.SetSizer(main_sizer)
-
-        self.SetBuildMode('st') # Default mode
-        self.UpdateStatus()
+        panel.SetSizer(main_sizer); self.SetBuildMode('st'); self.UpdateStatus()
         self.SetClientSize((gp_size + SIDEBAR_WIDTH + 40, gp_size + 20)); self.Layout(); self.Centre(); self.Show()
 
     def SetBuildMode(self, mode):
         self.game_panel.build_mode = mode
-        # Simple visual toggle using background colors
         active = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT)
         inactive = wx.NullColour
         self.btn_st.SetBackgroundColour(active if mode == 'st' else inactive)
@@ -493,8 +497,7 @@ class MainFrame(wx.Frame):
                 else:
                     w = winners[0]
                     self.status_label.SetLabel(self.game.t('winner', name=self.game.players[w]['name'], m=max_score))
-            self.btn_skip.Disable()
-            self.btn_st.Disable(); self.btn_mi.Disable()
+            self.btn_skip.Disable(); self.btn_st.Disable(); self.btn_mi.Disable()
         else:
             is_human = self.game.roles.get(self.game.turn) == 'human'
             self.btn_st.Enable(is_human); self.btn_mi.Enable(is_human)
@@ -503,7 +506,6 @@ class MainFrame(wx.Frame):
             charge = self.game.t('ready', n=power) if power >= req else self.game.t('charging', n=power, req=req)
             self.status_label.SetLabel(self.game.t('turn', name=p_name) + "\n" + charge)
             self.btn_skip.Enable(is_human)
-
         for p_id, lbl in self.score_labels:
             status = self.game.t('lost') if self.game.player_lost[p_id] else self.game.t('active')
             lbl.SetLabel(f"{self.game.players[p_id]['name']}: {status} ({scores.get(p_id, 0)} {self.game.t('mines')})")
@@ -514,6 +516,5 @@ if __name__ == "__main__":
     dlg = RoleDialog(None)
     if dlg.ShowModal() == wx.ID_OK:
         MainFrame(dlg.GetRoles(), dlg.GetMapSize(), dlg.GetWeaponReq(), dlg.GetAllowSkip(), dlg.GetAiWait(), dlg.lang)
-        dlg.Destroy()
-        app.MainLoop()
+        dlg.Destroy(); app.MainLoop()
     else: dlg.Destroy()
