@@ -1,39 +1,22 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Dimensions, FlatList, ActivityIndicator, Platform, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { MarsMinersGame, PlayerId, PlayerRole } from '../src/logic/MarsMinersGame';
-import { t } from '../src/logic/locales';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MarsMinersGame, PlayerId } from '../src/logic/MarsMinersGame';
+import { t } from '../src/logic/locales';
 
-export default function GameScreen() {
+interface GameViewProps {
+    game: MarsMinersGame;
+    onBack: () => void;
+}
+
+function GameView({ game, onBack }: GameViewProps) {
     const router = useRouter();
-    const params = useLocalSearchParams();
 
     // Force update helper
     const [tick, setTick] = useState(0);
     const forceUpdate = () => setTick(t => t + 1);
 
-    const gameRef = useRef<MarsMinersGame | null>(null);
-
-    // Initialize Game
-    if (!gameRef.current) {
-        try {
-            const roles = JSON.parse(params.roles as string);
-            const size = parseInt(params.grid_size as string);
-            const weaponReq = parseInt(params.weapon_req as string);
-            const allowSkip = params.allow_skip === '1';
-            const aiWait = parseInt(params.ai_wait as string);
-            const lang = params.lang as 'en' | 'ru';
-
-            gameRef.current = new MarsMinersGame(roles, size, weaponReq, allowSkip, aiWait, lang);
-        } catch (e) {
-            console.error("Failed to parsing params", e);
-            router.replace('/');
-            return <View><ActivityIndicator /></View>;
-        }
-    }
-
-    const game = gameRef.current;
     // Capture state for Effect dependencies and Render
     const currentTurn = game.turn;
     const isGameOver = game.game_over;
@@ -54,7 +37,7 @@ export default function GameScreen() {
             }, Math.max(50, game.ai_wait));
             return () => clearTimeout(timer);
         }
-    }, [currentTurn, isGameOver, tick]); // Tick ensures we check again if something weird happens, but mostly turn.
+    }, [currentTurn, isGameOver, tick]);
 
     // Show game over modal
     useEffect(() => {
@@ -85,8 +68,6 @@ export default function GameScreen() {
                     game.nextTurn();
                     forceUpdate();
                 }
-            } else {
-                // Feedback? Maybe vibrate or toast
             }
         } else if (cell === '.') {
             if (game.canBuild(r, c, currentTurn)) {
@@ -97,18 +78,11 @@ export default function GameScreen() {
         }
     };
 
-    // Quit/Back
-    const handleBack = () => {
-        router.back();
-    };
-
     // Handle modal OK button
     const handleModalOk = () => {
         setShowGameOverModal(false);
-        router.back();
+        onBack();
     };
-
-
 
     const [layout, setLayout] = useState({ width: 0, height: 0 });
 
@@ -122,21 +96,14 @@ export default function GameScreen() {
 
     // Calculate cell size to fit container
     const availableSize = Math.min(layout.width, layout.height);
-    const cellSize = availableSize > 0 ? (Math.floor(availableSize / game.size) - 2) : 0; // -2 for margin/border safety
+    const cellSize = availableSize > 0 ? (Math.floor(availableSize / game.size) - 2) : 0;
 
     const renderCell = ({ item, index }: { item: string, index: number }) => {
         if (cellSize <= 0) return null;
-
-        // FlatList data will be flattened grid? Or we render rows?
-        // Let's flatten grid for FlatList.
-        // Actually FlatList with numColumns is easier.
-        // item is cell content. index gives us r, c.
         const r = Math.floor(index / game.size);
         const c = index % game.size;
 
         const isWeaponPart = weaponCells.has(`${r},${c}`);
-
-        // ... (rest of logic same) ...
 
         let bgColor = '#1e1e1e';
         if (isWeaponPart) bgColor = '#504614';
@@ -198,10 +165,9 @@ export default function GameScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={handleBack} style={styles.backBtn}><Text style={styles.btnText}>←</Text></TouchableOpacity>
-                <View style={styles.headerInfo}>
+                <TouchableOpacity onPress={onBack} style={styles.backBtn}><Text style={styles.btnText}>←</Text></TouchableOpacity>
+                <div dir="auto" style={styles.headerInfo as any}>
                     <Text style={styles.headerTitle} numberOfLines={2}>{statusText}</Text>
-                    {/* Compact Scores in Header */}
                     <View style={styles.headerScores}>
                         {[1, 2, 3, 4].map(pid => {
                             const id = pid as PlayerId;
@@ -215,7 +181,7 @@ export default function GameScreen() {
                             );
                         })}
                     </View>
-                </View>
+                </div>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -234,7 +200,6 @@ export default function GameScreen() {
                 )}
             </View>
 
-            {/* Same bottom bar */}
             <View style={styles.bottomBar}>
                 <TouchableOpacity
                     style={[styles.bottomBtn, buildMode === 'st' ? styles.activeBtn : {}]}
@@ -253,12 +218,11 @@ export default function GameScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* Game Over Modal */}
             <Modal
                 visible={showGameOverModal}
                 transparent={true}
                 animationType="fade"
-                onRequestClose={() => {}}
+                onRequestClose={() => { }}
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -272,6 +236,48 @@ export default function GameScreen() {
             </Modal>
         </SafeAreaView>
     );
+}
+
+export default function GameScreen() {
+    const router = useRouter();
+    const params = useLocalSearchParams();
+    const gameRef = useRef<MarsMinersGame | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
+
+    useEffect(() => {
+        if (!gameRef.current && params.roles) {
+            try {
+                const roles = JSON.parse(params.roles as string);
+                const size = parseInt(params.grid_size as string);
+                const weaponReq = parseInt(params.weapon_req as string);
+                const allowSkip = params.allow_skip === '1';
+                const aiWait = parseInt(params.ai_wait as string);
+                const lang = params.lang as 'en' | 'ru';
+
+                gameRef.current = new MarsMinersGame(roles, size, weaponReq, allowSkip, aiWait, lang);
+                setIsInitialized(true);
+            } catch (e) {
+                console.error("Failed to parsing params", e);
+                router.replace('/');
+            }
+        }
+    }, [params.roles]);
+
+    const handleBack = () => {
+        router.back();
+    };
+
+    if (!isInitialized || !gameRef.current) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.gridContainer}>
+                    <ActivityIndicator size="large" color="#007AFF" />
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    return <GameView game={gameRef.current} onBack={handleBack} />;
 }
 
 const styles = StyleSheet.create({
@@ -290,8 +296,7 @@ const styles = StyleSheet.create({
     bottomBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333', margin: 10, borderRadius: 8 },
     activeBtn: { backgroundColor: '#007AFF' },
     btnLabel: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-    
-    // Modal styles
+
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center' },
     modalContent: { backgroundColor: '#2a2a2a', padding: 30, borderRadius: 15, alignItems: 'center', minWidth: 300 },
     modalTitle: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 15 },

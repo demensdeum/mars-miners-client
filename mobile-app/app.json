@@ -2,7 +2,6 @@
   "expo": {
     "name": "mobile-app",
     "slug": "mobile-app",
-    "baseUrl": "/demos/mars-miners",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -44,7 +43,8 @@
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": true,
+      "baseUrl": "/demos/mars-miners"
     }
   }
 }
