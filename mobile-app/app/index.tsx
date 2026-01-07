@@ -7,7 +7,7 @@ import { t, LOCALE } from '../src/logic/locales';
 
 export default function SetupScreen() {
     const router = useRouter();
-    const [lang, setLang] = useState<'en' | 'ru'>('en');
+    const [lang] = useState<'en' | 'ru'>('en');
     const [roles, setRoles] = useState<Record<PlayerId, PlayerRole>>({
         1: 'human', 2: 'ai', 3: 'none', 4: 'none'
     });
@@ -16,7 +16,7 @@ export default function SetupScreen() {
     const [aiWait, setAiWait] = useState(0);
     const [allowSkip, setAllowSkip] = useState(true);
 
-    const toggleLang = () => setLang(l => l === 'en' ? 'ru' : 'en');
+
 
     const cycleRole = (pid: PlayerId) => {
         const opts: PlayerRole[] = ['human', 'ai', 'none'];
@@ -57,7 +57,6 @@ export default function SetupScreen() {
                 const saved = await AsyncStorage.getItem('mm_setup_config');
                 if (saved) {
                     const config = JSON.parse(saved);
-                    if (config.lang) setLang(config.lang);
                     if (config.roles) setRoles(config.roles);
                     if (config.mapSize) setMapSize(config.mapSize);
                     if (config.weaponReq) setWeaponReq(config.weaponReq);
@@ -100,12 +99,7 @@ export default function SetupScreen() {
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <Text style={styles.title}>{t('setup_title', lang)}</Text>
 
-            <View style={styles.row}>
-                <Text style={styles.label}>{t('lang_label', lang)}</Text>
-                <TouchableOpacity onPress={toggleLang} style={styles.button}>
-                    <Text style={styles.buttonText}>{lang === 'en' ? 'English' : 'Русский'}</Text>
-                </TouchableOpacity>
-            </View>
+
 
             <Text style={styles.sectionHeader}>{t('assign_roles', lang)}</Text>
             {[1, 2, 3, 4].map(i => {
