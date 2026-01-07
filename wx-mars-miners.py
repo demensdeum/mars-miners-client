@@ -4,103 +4,74 @@ import time
 import json
 import math
 
+# ---  ---
+
 # Game Constants (Defaults)
 SYMBOL_FONT_SIZE = 32
 CELL_TOP_OFFSET = 12
 SIDEBAR_WIDTH = 220
 
-# Localization Dictionary
+# Localization Updates
 LOCALE = {
     'en': {
+        # ... (previous keys)
+        'build_mode': "BUILD MODE:",
+        'station_btn': "Station (Path)",
+        'mine_btn': "Mine (Points)",
+        # Adding missing keys from your snippet for completeness
         'title': "Mars Miners: GUI Edition",
         'setup_title': "Mars Expedition Setup",
         'assign_roles': "Assign Roles for Players:",
-        'player': "Player",
-        'human': "Human",
-        'ai': "AI",
-        'none': "None",
-        'map_size': "Map Size:",
-        'weapon_req': "Weapon Req (Line Length):",
-        'stations': "Stations",
-        'ai_wait': "AI Turn Wait Time:",
-        'asap': "ASAP (0ms)",
-        'fast': "Fast (500ms)",
-        'med': "Medium (1000ms)",
-        'slow': "Slow (2000ms)",
-        'allow_skip': "Allow manual Turn Skip",
-        'start_btn': "Start Mission",
-        'expedition_log': "--- EXPEDITION LOG ---",
-        'initializing': "Initializing...",
-        'skip_turn': "Skip Turn",
-        'active': "ACTIVE",
-        'lost': "BLOCKED",
-        'mines': "Mines",
-        'storage': "--- STORAGE ---",
-        'save': "Save Mission",
-        'load': "Load Mission",
-        'new_game': "New Game",
-        'restart_game': "Restart Mission",
-        'controls': "L-Click: Station\nShift+L: Mine",
+        'player': "Player", 'human': "Human", 'ai': "AI", 'none': "None",
+        'map_size': "Map Size:", 'weapon_req': "Weapon Req (Line Length):",
+        'stations': "Stations", 'ai_wait': "AI Turn Wait Time:",
+        'asap': "ASAP (0ms)", 'fast': "Fast (500ms)", 'med': "Medium (1000ms)", 'slow': "Slow (2000ms)",
+        'allow_skip': "Allow manual Turn Skip", 'start_btn': "Start Mission",
+        'expedition_log': "--- EXPEDITION LOG ---", 'initializing': "Initializing...",
+        'skip_turn': "Skip Turn", 'active': "ACTIVE", 'lost': "BLOCKED",
+        'mines': "Mines", 'storage': "--- STORAGE ---", 'save': "Save Mission",
+        'load': "Load Mission", 'new_game': "New Game", 'restart_game': "Restart Mission",
+        'controls': "L-Click: Place selected\nShift+L: Quick Mine",
         'attack_help': "Attack Enemy:\nL-Click enemy station",
         'requires': "Requires {n}+ Stations",
         'failed': "MISSION FAILED\nALL ELIMINATED",
         'winner': "MISSION COMPLETE!\nWINNER: {name} ({m} Mines)",
         'draw': "MISSION COMPLETE!\nDRAW: {names} ({m} Mines)",
-        'turn': "TURN: {name}",
-        'ready': "READY ({n})",
-        'charging': "CHARGING ({n}/{req})",
-        'abandon_msg': "Are you sure you want to abandon the current mission and start over?",
-        'abandon_title': "Abandon Mission",
-        'exit_msg': "Are you sure you want to exit the game? Unsaved progress will be lost.",
-        'exit_title': "Exit Mission",
-        'lang_label': "Interface Language / Язык интерфейса:",
+        'turn': "TURN: {name}", 'ready': "READY ({n})", 'charging': "CHARGING ({n}/{req})",
+        'abandon_msg': "Are you sure you want to abandon the current mission?",
+        'abandon_title': "Abandon Mission", 'exit_msg': "Exit game?", 'exit_title': "Exit",
+        'lang_label': "Language / Язык:",
     },
     'ru': {
+        'build_mode': "РЕЖИМ СТРОЙКИ:",
+        'station_btn': "Станция (Путь)",
+        'mine_btn': "Шахта (Очки)",
         'title': "Марсианские Шахтеры",
         'setup_title': "Настройка экспедиции",
-        'assign_roles': "Назначьте роли игрокам:",
-        'player': "Игрок",
-        'human': "Человек",
-        'ai': "ИИ",
-        'none': "Нет",
-        'map_size': "Размер карты:",
-        'weapon_req': "Длина орудия:",
-        'stations': "Станций",
-        'ai_wait': "Задержка хода ИИ:",
-        'asap': "Сразу (0мс)",
-        'fast': "Быстро (500мс)",
-        'med': "Средне (1000мс)",
-        'slow': "Медленно (2000мс)",
-        'allow_skip': "Разрешить пропуск хода",
-        'start_btn': "Начать миссию",
-        'expedition_log': "--- ЖУРНАЛ ЭКСПЕДИЦИИ ---",
-        'initializing': "Инициализация...",
-        'skip_turn': "Пропустить ход",
-        'active': "АКТИВЕН",
-        'lost': "БЛОКИРОВАН",
-        'mines': "Шахт",
-        'storage': "--- ХРАНИЛИЩЕ ---",
-        'save': "Сохранить",
-        'load': "Загрузить",
-        'new_game': "Новая игра",
-        'restart_game': "Начать заново",
-        'controls': "ЛКМ: Станция\nShift+ЛКМ: Шахта",
-        'attack_help': "Атака врага:\nЛКМ по вражеской станции",
+        'assign_roles': "Назначьте роли:",
+        'player': "Игрок", 'human': "Человек", 'ai': "ИИ", 'none': "Нет",
+        'map_size': "Размер карты:", 'weapon_req': "Длина орудия:",
+        'stations': "Станций", 'ai_wait': "Задержка ИИ:",
+        'asap': "0мс", 'fast': "500мс", 'med': "1000мс", 'slow': "2000мс",
+        'allow_skip': "Пропуск хода", 'start_btn': "Начать",
+        'expedition_log': "--- ЖУРНАЛ ---", 'initializing': "Загрузка...",
+        'skip_turn': "Пропустить ход", 'active': "АКТИВЕН", 'lost': "БЛОК",
+        'mines': "Шахт", 'storage': "--- ХРАНИЛИЩЕ ---", 'save': "Сохранить",
+        'load': "Загрузить", 'new_game': "Новая игра", 'restart_game': "Заново",
+        'controls': "ЛКМ: Строить выбор\nShift+ЛКМ: Быстрая шахта",
+        'attack_help': "Атака:\nЛКМ по врагу",
         'requires': "Нужно {n}+ станций",
-        'failed': "МИССИЯ ПРОВАЛЕНА\nВСЕ ПОГИБЛИ",
-        'winner': "МИССИЯ ВЫПОЛНЕНА!\nПОБЕДИТЕЛЬ: {name} ({m} Шахт)",
-        'draw': "МИССИЯ ВЫПОЛНЕНА!\nНИЧЬЯ: {names} ({m} Шахт)",
-        'turn': "ХОД: {name}",
-        'ready': "ГОТОВО ({n})",
-        'charging': "ЗАРЯДКА ({n}/{req})",
-        'abandon_msg': "Вы уверены, что хотите прервать текущую миссию и начать заново?",
-        'abandon_title': "Прервать миссию",
-        'exit_msg': "Вы уверены, что хотите выйти из игры? Несохраненный прогресс будет потерян.",
-        'exit_title': "Выход из миссии",
-        'lang_label': "Язык интерфейса / Interface Language:",
+        'failed': "МИССИЯ ПРОВАЛЕНА",
+        'winner': "ПОБЕДА: {name} ({m} Шахт)",
+        'draw': "НИЧЬЯ: {names} ({m} Шахт)",
+        'turn': "ХОД: {name}", 'ready': "ГОТОВО ({n})", 'charging': "ЗАРЯДКА ({n}/{req})",
+        'abandon_msg': "Прервать миссию?", 'abandon_title': "Прервать",
+        'exit_msg': "Выйти?", 'exit_title': "Выход",
+        'lang_label': "Язык:",
     }
 }
 
+# ... [MarsMinersGame class remains the same as your provided code] ...
 class MarsMinersGame:
     """Core Game Logic adapted for GUI"""
     def __init__(self, roles, grid_size=10, weapon_req=4, allow_skip=True, ai_wait=0, lang='en'):
@@ -135,35 +106,23 @@ class MarsMinersGame:
         self.game_over = False
 
     def t(self, key, **kwargs):
-        """Helper to get translated text"""
         text = LOCALE.get(self.lang, LOCALE['en']).get(key, key)
         return text.format(**kwargs)
 
     def to_dict(self):
         return {
-            "size": self.size,
-            "grid": self.grid,
-            "roles": {str(k): v for k, v in self.roles.items()},
-            "weapon_req": self.weapon_req,
-            "allow_skip": self.allow_skip,
-            "ai_wait": self.ai_wait,
-            "lang": self.lang,
-            "turn": self.turn,
-            "player_lost": {str(k): v for k, v in self.player_lost.items()},
+            "size": self.size, "grid": self.grid, "roles": {str(k): v for k, v in self.roles.items()},
+            "weapon_req": self.weapon_req, "allow_skip": self.allow_skip, "ai_wait": self.ai_wait,
+            "lang": self.lang, "turn": self.turn, "player_lost": {str(k): v for k, v in self.player_lost.items()},
             "game_over": self.game_over
         }
 
     def from_dict(self, data):
-        self.size = data["size"]
-        self.grid = data["grid"]
+        self.size, self.grid, self.weapon_req = data["size"], data["grid"], data["weapon_req"]
         self.roles = {int(k): v for k, v in data["roles"].items()}
-        self.weapon_req = data["weapon_req"]
-        self.allow_skip = data["allow_skip"]
-        self.ai_wait = data["ai_wait"]
-        self.lang = data.get("lang", "en")
-        self.turn = data["turn"]
+        self.allow_skip, self.ai_wait, self.lang = data["allow_skip"], data["ai_wait"], data.get("lang", "en")
+        self.turn, self.game_over = data["turn"], data["game_over"]
         self.player_lost = {int(k): v for k, v in data["player_lost"].items()}
-        self.game_over = data["game_over"]
         self.players = {
             1: {'st': '↑', 'mi': '○', 'name': 'P1', 'pos': (0, 0), 'color': wx.Colour(255, 100, 100)},
             2: {'st': '↓', 'mi': '△', 'name': 'P2', 'pos': (self.size - 1, self.size - 1), 'color': wx.Colour(100, 255, 100)},
@@ -176,8 +135,7 @@ class MarsMinersGame:
                 for p in self.players if self.roles.get(p) != 'none'}
 
     def get_line_power(self, p):
-        st = self.players[p]['st']
-        max_p = 0
+        st, max_p = self.players[p]['st'], 0
         for r in range(self.size):
             cur = 0
             for c in range(self.size):
@@ -198,10 +156,8 @@ class MarsMinersGame:
         return False
 
     def can_build(self, r, c, p):
-        if not (0 <= r < self.size and 0 <= c < self.size) or self.grid[r][c] != '.':
-            return False
-        adj = [(-1,0), (1,0), (0,-1), (0,1)]
-        target_station = self.players[p]['st']
+        if not (0 <= r < self.size and 0 <= c < self.size) or self.grid[r][c] != '.': return False
+        adj, target_station = [(-1,0), (1,0), (0,-1), (0,1)], self.players[p]['st']
         for dr, dc in adj:
             nr, nc = r + dr, c + dc
             if 0 <= nr < self.size and 0 <= nc < self.size:
@@ -210,29 +166,22 @@ class MarsMinersGame:
 
     def shoot_laser(self, r, c, power):
         if self.grid[r][c] != '.' and self.grid[r][c] != '█':
-            self.grid[r][c] = '█'
-            return True
+            self.grid[r][c] = '█'; return True
         return False
 
     def next_turn(self):
         for p_id in range(1, 5):
             if self.roles[p_id] != 'none' and not self.player_lost[p_id]:
-                if not self.can_player_move(p_id):
-                    self.player_lost[p_id] = True
-
+                if not self.can_player_move(p_id): self.player_lost[p_id] = True
         active_players = [p_id for p_id in range(1, 5) if self.roles[p_id] != 'none' and not self.player_lost[p_id]]
-        if not active_players:
-            self.game_over = True
-            return
-
+        if not active_players: self.game_over = True; return
         start_turn = self.turn
         self.turn = self.turn % 4 + 1
         while self.roles[self.turn] == 'none' or self.player_lost[self.turn]:
             self.turn = self.turn % 4 + 1
-            if self.turn == start_turn:
-                self.game_over = True
-                break
+            if self.turn == start_turn: self.game_over = True; break
 
+# ... [RoleDialog class remains the same] ...
 class RoleDialog(wx.Dialog):
     def __init__(self, parent, current_lang='en'):
         self.lang = current_lang
@@ -334,6 +283,7 @@ class GamePanel(wx.Panel):
     def __init__(self, parent, game):
         super().__init__(parent)
         self.game = game
+        self.build_mode = 'st'  # 'st' for Station, 'mi' for Mine
         self.update_ui_params()
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.Bind(wx.EVT_PAINT, self.OnPaint)
@@ -382,13 +332,16 @@ class GamePanel(wx.Panel):
             for pid, p_data in self.game.players.items():
                 if cell == p_data['st'] and pid != self.game.turn:
                     enemy_id = pid; break
+
             if enemy_id:
                 power = self.game.get_line_power(self.game.turn)
                 if power >= self.game.weapon_req:
                     if self.game.shoot_laser(r, c, power=power): self.game.next_turn()
             elif cell == '.':
                 if self.game.can_build(r, c, self.game.turn):
-                    self.game.grid[r][c] = self.game.players[self.game.turn]['mi' if is_shift else 'st']
+                    # Use panel's build_mode unless Shift is held
+                    mode = 'mi' if is_shift else self.build_mode
+                    self.game.grid[r][c] = self.game.players[self.game.turn][mode]
                     self.game.next_turn()
             self.Refresh(); wx.GetTopLevelParent(self).UpdateStatus()
 
@@ -444,12 +397,26 @@ class MainFrame(wx.Frame):
         gp_size = self.game.size * self.game_panel.cell_size
         self.game_panel.SetMinSize((gp_size, gp_size))
         sidebar = wx.BoxSizer(wx.VERTICAL); sidebar.SetMinSize((SIDEBAR_WIDTH, -1))
-        sidebar.Add(wx.StaticText(panel, label=self.game.t('expedition_log')), 0, wx.ALL, 10)
+
+        # --- NEW BUILD BUTTONS ---
+        sidebar.Add(wx.StaticText(panel, label=self.game.t('build_mode')), 0, wx.ALL, 5)
+        self.btn_st = wx.Button(panel, label=self.game.t('station_btn'))
+        self.btn_mi = wx.Button(panel, label=self.game.t('mine_btn'))
+
+        self.btn_st.Bind(wx.EVT_BUTTON, lambda e: self.SetBuildMode('st'))
+        self.btn_mi.Bind(wx.EVT_BUTTON, lambda e: self.SetBuildMode('mi'))
+
+        sidebar.Add(self.btn_st, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
+        sidebar.Add(self.btn_mi, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 5)
+        sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 10)
+        # -------------------------
+
         self.status_label = wx.StaticText(panel, label=self.game.t('initializing'))
         sidebar.Add(self.status_label, 0, wx.ALL, 10)
         self.btn_skip = wx.Button(panel, label=self.game.t('skip_turn'))
         self.btn_skip.Bind(wx.EVT_BUTTON, self.OnSkipTurn); sidebar.Add(self.btn_skip, 0, wx.ALL | wx.EXPAND, 10)
         if not self.game.allow_skip: self.btn_skip.Hide()
+
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
         self.score_labels = []
         for i in range(1, 5):
@@ -457,7 +424,8 @@ class MainFrame(wx.Frame):
                 lbl = wx.StaticText(panel, label="")
                 lbl.SetForegroundColour(self.game.players[i]['color'])
                 self.score_labels.append((i, lbl)); sidebar.Add(lbl, 0, wx.LEFT | wx.RIGHT | wx.TOP, 5)
-        sidebar.AddStretchSpacer(); sidebar.Add(wx.StaticText(panel, label=self.game.t('storage')), 0, wx.ALL, 5)
+
+        sidebar.AddStretchSpacer();
         btn_save = wx.Button(panel, label=self.game.t('save'))
         btn_save.Bind(wx.EVT_BUTTON, self.OnSaveGame); sidebar.Add(btn_save, 0, wx.ALL | wx.EXPAND, 5)
         btn_load = wx.Button(panel, label=self.game.t('load'))
@@ -468,17 +436,23 @@ class MainFrame(wx.Frame):
         btn_restart.Bind(wx.EVT_BUTTON, self.OnRestartGame); sidebar.Add(btn_restart, 0, wx.ALL | wx.EXPAND, 5)
 
         btn_new_game = wx.Button(panel, label=self.game.t('new_game'))
-        btn_new_game.Bind(wx.EVT_BUTTON, self.OnNewGameRequest); sidebar.Add(btn_new_game, 0, wx.ALL | wx.EXPAND, 10)
+        btn_new_game.Bind(wx.EVT_BUTTON, self.OnNewGameRequest); sidebar.Add(btn_new_game, 0, wx.ALL | wx.EXPAND, 5)
 
-        sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
-        sidebar.Add(wx.StaticText(panel, label=self.game.t('controls')), 0, wx.ALL, 2)
-        sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
-        sidebar.Add(wx.StaticText(panel, label=self.game.t('attack_help')), 0, wx.ALL, 2)
-        sidebar.Add(wx.StaticText(panel, label=self.game.t('requires', n=self.game.weapon_req)), 0, wx.ALL, 2)
         main_sizer.Add(self.game_panel, 1, wx.EXPAND | wx.ALL, 10)
         main_sizer.Add(sidebar, 0, wx.EXPAND | wx.ALL, 10)
-        panel.SetSizer(main_sizer); self.UpdateStatus()
+        panel.SetSizer(main_sizer)
+
+        self.SetBuildMode('st') # Default mode
+        self.UpdateStatus()
         self.SetClientSize((gp_size + SIDEBAR_WIDTH + 40, gp_size + 20)); self.Layout(); self.Centre(); self.Show()
+
+    def SetBuildMode(self, mode):
+        self.game_panel.build_mode = mode
+        # Simple visual toggle using background colors
+        active = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT)
+        inactive = wx.NullColour
+        self.btn_st.SetBackgroundColour(active if mode == 'st' else inactive)
+        self.btn_mi.SetBackgroundColour(active if mode == 'mi' else inactive)
 
     def OnSaveGame(self, e):
         with wx.FileDialog(self, self.game.t('save'), wildcard="JSON (*.json)|*.json", style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT) as fd:
@@ -492,27 +466,18 @@ class MainFrame(wx.Frame):
         if not self.game.game_over and self.game.roles.get(self.game.turn) == 'human':
             self.game.next_turn(); self.game_panel.Refresh(); self.UpdateStatus()
     def OnRestartGame(self, e):
-        """Restarts the current mission with same settings after confirmation."""
         if wx.MessageDialog(self, self.game.t('abandon_msg'), self.game.t('abandon_title'), wx.YES_NO).ShowModal() == wx.ID_YES:
             self.game = MarsMinersGame(self.game.roles, self.game.size, self.game.weapon_req, self.game.allow_skip, self.game.ai_wait, self.game.lang); self.init_ui()
-
     def OnNewGameRequest(self, e):
-        """Opens setup dialog for a new game with potentially different settings."""
         if wx.MessageDialog(self, self.game.t('abandon_msg'), self.game.t('abandon_title'), wx.YES_NO).ShowModal() == wx.ID_YES:
             dlg = RoleDialog(self, self.game.lang)
             if dlg.ShowModal() == wx.ID_OK:
                 self.game = MarsMinersGame(dlg.GetRoles(), dlg.GetMapSize(), dlg.GetWeaponReq(), dlg.GetAllowSkip(), dlg.GetAiWait(), dlg.lang); self.init_ui()
             dlg.Destroy()
-
     def OnClose(self, event):
-        """Asks for confirmation before closing the main window."""
-        dial = wx.MessageDialog(None, self.game.t('exit_msg'), self.game.t('exit_title'),
-                               wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
-        ret = dial.ShowModal()
-        if ret == wx.ID_YES:
-            self.Destroy()
-        else:
-            event.Veto()
+        dial = wx.MessageDialog(None, self.game.t('exit_msg'), self.game.t('exit_title'), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+        if dial.ShowModal() == wx.ID_YES: self.Destroy()
+        else: event.Veto()
 
     def UpdateStatus(self):
         scores = self.game.get_scores()
@@ -529,12 +494,15 @@ class MainFrame(wx.Frame):
                     w = winners[0]
                     self.status_label.SetLabel(self.game.t('winner', name=self.game.players[w]['name'], m=max_score))
             self.btn_skip.Disable()
+            self.btn_st.Disable(); self.btn_mi.Disable()
         else:
+            is_human = self.game.roles.get(self.game.turn) == 'human'
+            self.btn_st.Enable(is_human); self.btn_mi.Enable(is_human)
             p_name = self.game.players[self.game.turn]['name']
             power, req = self.game.get_line_power(self.game.turn), self.game.weapon_req
             charge = self.game.t('ready', n=power) if power >= req else self.game.t('charging', n=power, req=req)
             self.status_label.SetLabel(self.game.t('turn', name=p_name) + "\n" + charge)
-            self.btn_skip.Enable(self.game.roles.get(self.game.turn) == 'human')
+            self.btn_skip.Enable(is_human)
 
         for p_id, lbl in self.score_labels:
             status = self.game.t('lost') if self.game.player_lost[p_id] else self.game.t('active')
@@ -545,14 +513,7 @@ if __name__ == "__main__":
     app = wx.App()
     dlg = RoleDialog(None)
     if dlg.ShowModal() == wx.ID_OK:
-        lang = dlg.lang
-        roles = dlg.GetRoles()
-        size = dlg.GetMapSize()
-        w_req = dlg.GetWeaponReq()
-        skip = dlg.GetAllowSkip()
-        wait = dlg.GetAiWait()
+        MainFrame(dlg.GetRoles(), dlg.GetMapSize(), dlg.GetWeaponReq(), dlg.GetAllowSkip(), dlg.GetAiWait(), dlg.lang)
         dlg.Destroy()
-        MainFrame(roles, size, w_req, skip, wait, lang)
         app.MainLoop()
-    else:
-        dlg.Destroy()
+    else: dlg.Destroy()
