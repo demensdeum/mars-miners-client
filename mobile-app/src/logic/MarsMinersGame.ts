@@ -258,6 +258,26 @@ export class MarsMinersGame {
             return;
         }
 
+        // Check for early win (one player left with more resources than others)
+        if (activePlayers.length === 1) {
+            const scores = this.getScores();
+            const winnerId = activePlayers[0] as PlayerId;
+            const winnerScore = scores[winnerId] || 0;
+
+            let maxOtherScore = 0;
+            for (let pid = 1; pid <= 4; pid++) {
+                const id = pid as PlayerId;
+                if (id !== winnerId && this.roles[id] !== 'none') {
+                    maxOtherScore = Math.max(maxOtherScore, scores[id] || 0);
+                }
+            }
+
+            if (winnerScore > maxOtherScore) {
+                this.game_over = true;
+                return;
+            }
+        }
+
         // Advance turn to next valid player
         const startTurn = this.turn;
         do {
