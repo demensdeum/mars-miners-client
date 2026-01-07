@@ -62,10 +62,10 @@ export class MarsMinersGame {
 
 
         this.players = {
-            1: { st: '↑', mi: '○', name: t('player_1', lang), pos: [0, 0], color: '#FF6464' },
-            2: { st: '↓', mi: '△', name: t('player_2', lang), pos: [this.size - 1, this.size - 1], color: '#64FF64' },
-            3: { st: '←', mi: '□', name: t('player_3', lang), pos: [0, this.size - 1], color: '#6464FF' },
-            4: { st: '→', mi: '◇', name: t('player_4', lang), pos: [this.size - 1, 0], color: '#FFC832' }
+            1: { st: '↑', mi: '○', name: t('player_1', lang), pos: [1, 1], color: '#FF6464' },
+            2: { st: '↓', mi: '△', name: t('player_2', lang), pos: [this.size - 2, this.size - 2], color: '#64FF64' },
+            3: { st: '←', mi: '□', name: t('player_3', lang), pos: [1, this.size - 2], color: '#6464FF' },
+            4: { st: '→', mi: '◇', name: t('player_4', lang), pos: [this.size - 2, 1], color: '#FFC832' }
         };
 
         // Initialize board
@@ -123,9 +123,9 @@ export class MarsMinersGame {
         this.highlight_weapon = data.highlight_weapon ?? true;
         // Re-init players pos if size changed?
         // Actually players pos logic is tied to size in constructor. We should update player pos based on loaded size.
-        this.players[2].pos = [this.size - 1, this.size - 1];
-        this.players[3].pos = [0, this.size - 1];
-        this.players[4].pos = [this.size - 1, 0];
+        this.players[2].pos = [this.size - 2, this.size - 2];
+        this.players[3].pos = [1, this.size - 2];
+        this.players[4].pos = [this.size - 2, 1];
     }
 
     getScores(): Record<PlayerId, number> {
