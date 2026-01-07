@@ -50,6 +50,8 @@ LOCALE = {
         'charging': "CHARGING ({n}/{req})",
         'abandon_msg': "Are you sure you want to abandon the current mission and start over?",
         'abandon_title': "Abandon Mission",
+        'exit_msg': "Are you sure you want to exit the game? Unsaved progress will be lost.",
+        'exit_title': "Exit Mission",
         'lang_label': "Interface Language / Язык интерфейса:",
     },
     'ru': {
@@ -91,6 +93,8 @@ LOCALE = {
         'charging': "ЗАРЯДКА ({n}/{req})",
         'abandon_msg': "Вы уверены, что хотите прервать текущую миссию и начать заново?",
         'abandon_title': "Прервать миссию",
+        'exit_msg': "Вы уверены, что хотите выйти из игры? Несохраненный прогресс будет потерян.",
+        'exit_title': "Выход из миссии",
         'lang_label': "Язык интерфейса / Interface Language:",
     }
 }
@@ -314,7 +318,7 @@ class RoleDialog(wx.Dialog):
         self.SetTitle(self.t('setup_title')); self.init_ui()
 
     def OnClose(self, event):
-        self.EndModal(wx.ID_CANCEL); wx.GetApp().ExitMainLoop()
+        self.EndModal(wx.ID_CANCEL)
 
     def GetRoles(self):
         mapping = {0: 'human', 1: 'ai', 2: 'none'}
@@ -485,7 +489,17 @@ class MainFrame(wx.Frame):
             dlg = RoleDialog(self, self.game.lang)
             if dlg.ShowModal() == wx.ID_OK:
                 self.game = MarsMinersGame(dlg.GetRoles(), dlg.GetMapSize(), dlg.GetWeaponReq(), dlg.GetAllowSkip(), dlg.GetAiWait(), dlg.lang); self.init_ui()
-    def OnClose(self, event): self.Destroy(); wx.GetApp().ExitMainLoop()
+            dlg.Destroy()
+
+    def OnClose(self, event):
+        """Asks for confirmation before closing the main window."""
+        dial = wx.MessageDialog(None, self.game.t('exit_msg'), self.game.t('exit_title'),
+                               wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+        ret = dial.ShowModal()
+        if ret == wx.ID_YES:
+            self.Destroy()
+        else:
+            event.Veto()
 
     def UpdateStatus(self):
         scores = self.game.get_scores()
@@ -518,5 +532,14 @@ if __name__ == "__main__":
     app = wx.App()
     dlg = RoleDialog(None)
     if dlg.ShowModal() == wx.ID_OK:
-        MainFrame(dlg.GetRoles(), dlg.GetMapSize(), dlg.GetWeaponReq(), dlg.GetAllowSkip(), dlg.GetAiWait(), dlg.lang)
+        lang = dlg.lang
+        roles = dlg.GetRoles()
+        size = dlg.GetMapSize()
+        w_req = dlg.GetWeaponReq()
+        skip = dlg.GetAllowSkip()
+        wait = dlg.GetAiWait()
+        dlg.Destroy()
+        MainFrame(roles, size, w_req, skip, wait, lang)
         app.MainLoop()
+    else:
+        dlg.Destroy()
