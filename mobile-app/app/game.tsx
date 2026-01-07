@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Dimensions
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MarsMinersGame, PlayerId, PlayerRole } from '../src/logic/MarsMinersGame';
 import { t } from '../src/logic/locales';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function GameScreen() {
     const router = useRouter();
@@ -181,7 +182,7 @@ export default function GameScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={handleBack} style={styles.backBtn}><Text style={styles.btnText}>←</Text></TouchableOpacity>
                 <View style={styles.headerInfo}>
@@ -237,12 +238,12 @@ export default function GameScreen() {
                     <Text style={styles.btnLabel}>{t('mine_btn', game.lang)}</Text>
                 </TouchableOpacity>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#121212', paddingTop: 40 },
+    container: { flex: 1, backgroundColor: '#121212' },
     header: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 10, height: 70, borderBottomWidth: 1, borderBottomColor: '#333' },
     backBtn: { padding: 10 },
     btnText: { color: '#fff', fontSize: 24 },
@@ -253,7 +254,7 @@ const styles = StyleSheet.create({
     gridContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     cell: { borderWidth: 1, borderColor: '#333', alignItems: 'center', justifyContent: 'center' },
 
-    bottomBar: { flexDirection: 'row', height: 80, borderTopWidth: 1, borderTopColor: '#333', backgroundColor: '#1a1a1a' },
+    bottomBar: { flexDirection: 'row', height: 80 },
     bottomBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333', margin: 10, borderRadius: 8 },
     activeBtn: { backgroundColor: '#007AFF' },
     btnLabel: { color: '#fff', fontSize: 16, fontWeight: 'bold' }

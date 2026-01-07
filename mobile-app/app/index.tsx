@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { MarsMinersGame, PlayerRole, PlayerId } from '../src/logic/MarsMinersGame';
 import { t, LOCALE } from '../src/logic/locales';
 import { getLocales } from 'expo-localization';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SetupScreen() {
     const router = useRouter();
@@ -84,55 +85,58 @@ export default function SetupScreen() {
     };
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            <Text style={styles.title}>{t('setup_title', lang)}</Text>
+        <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
+            <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+                <Text style={styles.title}>{t('setup_title', lang)}</Text>
 
-            <Text style={styles.sectionHeader}>{t('assign_roles', lang)}</Text>
-            {[1, 2, 3, 4].map(i => {
-                const pid = i as PlayerId;
-                const role = roles[pid];
-                let roleLabel = t(role, lang);
+                <Text style={styles.sectionHeader}>{t('assign_roles', lang)}</Text>
+                {[1, 2, 3, 4].map(i => {
+                    const pid = i as PlayerId;
+                    const role = roles[pid];
+                    let roleLabel = t(role, lang);
 
-                return (
-                    <View key={pid} style={styles.row}>
-                        <Text style={styles.label}>{t('player', lang)} {pid}:</Text>
-                        <TouchableOpacity onPress={() => cycleRole(pid)} style={[styles.button, styles.roleButton]}>
-                            <Text style={styles.buttonText}>{roleLabel}</Text>
-                        </TouchableOpacity>
-                    </View>
-                );
-            })}
+                    return (
+                        <View key={pid} style={styles.row}>
+                            <Text style={styles.label}>{t('player', lang)} {pid}:</Text>
+                            <TouchableOpacity onPress={() => cycleRole(pid)} style={[styles.button, styles.roleButton]}>
+                                <Text style={styles.buttonText}>{roleLabel}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    );
+                })}
 
-            <View style={styles.divider} />
+                <View style={styles.divider} />
 
-            <View style={styles.row}>
-                <Text style={styles.label}>{t('map_size', lang)}</Text>
-                <TouchableOpacity onPress={cycleMapSize} style={styles.button}>
-                    <Text style={styles.buttonText}>{mapSize} x {mapSize}</Text>
+                <View style={styles.row}>
+                    <Text style={styles.label}>{t('map_size', lang)}</Text>
+                    <TouchableOpacity onPress={cycleMapSize} style={styles.button}>
+                        <Text style={styles.buttonText}>{mapSize} x {mapSize}</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.row}>
+                    <Text style={styles.label}>{t('weapon_req', lang)}</Text>
+                    <TouchableOpacity onPress={cycleWeaponReq} style={styles.button}>
+                        <Text style={styles.buttonText}>{weaponReq} {t('stations', lang)}</Text>
+                    </TouchableOpacity>
+                </View>
+
+
+                <View style={styles.spacer} />
+
+                <TouchableOpacity onPress={startGame} style={styles.startButton}>
+                    <Text style={styles.startButtonText}>{t('start_btn', lang)}</Text>
                 </TouchableOpacity>
-            </View>
-
-            <View style={styles.row}>
-                <Text style={styles.label}>{t('weapon_req', lang)}</Text>
-                <TouchableOpacity onPress={cycleWeaponReq} style={styles.button}>
-                    <Text style={styles.buttonText}>{weaponReq} {t('stations', lang)}</Text>
-                </TouchableOpacity>
-            </View>
-
-
-            <View style={styles.spacer} />
-
-            <TouchableOpacity onPress={startGame} style={styles.startButton}>
-                <Text style={styles.startButtonText}>{t('start_btn', lang)}</Text>
-            </TouchableOpacity>
-        </ScrollView>
+            </ScrollView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#1e1e1e' },
+    scrollView: { flex: 1 },
     content: { padding: 20, paddingBottom: 50 },
-    title: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 20, textAlign: 'center', marginTop: 40 },
+    title: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 20, textAlign: 'center', marginTop: 20 },
     sectionHeader: { fontSize: 18, color: '#aaa', marginTop: 15, marginBottom: 10 },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
     label: { color: '#fff', fontSize: 16 },
