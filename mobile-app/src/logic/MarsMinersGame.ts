@@ -1,3 +1,5 @@
+import { t } from './locales';
+
 export type PlayerRole = 'human' | 'ai' | 'none';
 export type Cell = string; // '.', 'X', or player symbols
 export type PlayerId = 1 | 2 | 3 | 4;
@@ -58,11 +60,12 @@ export class MarsMinersGame {
         this.player_lost = { 1: false, 2: false, 3: false, 4: false };
         this.game_over = false;
 
+
         this.players = {
-            1: { st: '↑', mi: '○', name: 'P1', pos: [0, 0], color: '#FF6464' },
-            2: { st: '↓', mi: '△', name: 'P2', pos: [this.size - 1, this.size - 1], color: '#64FF64' },
-            3: { st: '←', mi: '□', name: 'P3', pos: [0, this.size - 1], color: '#6464FF' },
-            4: { st: '→', mi: '◇', name: 'P4', pos: [this.size - 1, 0], color: '#FFC832' }
+            1: { st: '↑', mi: '○', name: t('player_1', lang), pos: [0, 0], color: '#FF6464' },
+            2: { st: '↓', mi: '△', name: t('player_2', lang), pos: [this.size - 1, this.size - 1], color: '#64FF64' },
+            3: { st: '←', mi: '□', name: t('player_3', lang), pos: [0, this.size - 1], color: '#6464FF' },
+            4: { st: '→', mi: '◇', name: t('player_4', lang), pos: [this.size - 1, 0], color: '#FFC832' }
         };
 
         // Initialize board
