@@ -72,36 +72,39 @@ class MarsMinersGame:
         return False
 
     def shoot_laser(self, r, c, vertical, power):
-        """Fires a laser through a point in specified direction based on power"""
-        hits_made = False
-        directions = []
-        if vertical:
-            directions = [(-1, 0), (1, 0)] # Up and Down
-        else:
-            directions = [(0, -1), (0, 1)] # Left and Right
+        """Fires a laser. Destroys stations if a contiguous group is hit."""
+        target_st = self.grid[r][c]
+        all_hit_cells = [(r, c)] # Start with the clicked cell
+
+        directions = [(-1, 0), (1, 0)] if vertical else [(0, -1), (0, 1)]
 
         for dr, dc in directions:
             curr_r, curr_c = r + dr, c + dc
-            hits = 0
-            target_st = None
+            direction_hits = 0
 
-            while 0 <= curr_r < self.size and 0 <= curr_c < self.size and hits < power:
+            # Scan in one direction (limited by attacker power)
+            while 0 <= curr_r < self.size and 0 <= curr_c < self.size and len(all_hit_cells) < power:
                 cell = self.grid[curr_r][curr_c]
-                is_any_st = any(cell == p['st'] for p in self.players.values())
 
-                if is_any_st:
-                    if target_st is None: target_st = cell
-                    if cell == target_st:
-                        self.grid[curr_r][curr_c] = '█'
-                        hits += 1
-                        hits_made = True
-                    else:
-                        break # Hit a different player's station line
-                elif cell != '.' and target_st:
-                    break # Hit a mine or debris after hitting a station
+                if cell == target_st:
+                    all_hit_cells.append((curr_r, curr_c))
+                    direction_hits += 1
+                elif cell == '.':
+                    # Lasers pass through vacuum to find next station
+                    pass
+                else:
+                    # Hit a different player's station or a mine/debris
+                    break
 
                 curr_r, curr_c = curr_r + dr, curr_c + dc
-        return hits_made
+
+        # RULE: A "group" is 2 or more contiguous units of the same type in that line
+        if len(all_hit_cells) >= 2:
+            for hr, hc in all_hit_cells:
+                self.grid[hr][hc] = '█'
+            return True
+
+        return False
 
     def next_turn(self):
         if not any('.' in row for row in self.grid):
@@ -215,12 +218,27 @@ class GamePanel(wx.Panel):
             cell = self.game.grid[r][c]
 
             # 1. Logic for attacking enemy stations (Laser)
-            is_enemy_st = any(cell == p['st'] for pid, p in self.game.players.items() if pid != self.game.turn)
-            if is_enemy_st:
+            enemy_id = None
+            for pid, p_data in self.game.players.items():
+                if cell == p_data['st'] and pid != self.game.turn:
+                    enemy_id = pid
+                    break
+
+            if enemy_id:
                 power = self.game.get_line_power(self.game.turn)
+                print(f"[VERBOSE] Target: Player {enemy_id} station at ({r}, {c})")
+                print(f"[VERBOSE] Attacker: Player {self.game.turn} | Power Level: {power}")
+
                 if power >= 2:
+                    mode = "Vertical" if is_shift else "Horizontal"
+                    print(f"[VERBOSE] Firing {mode} Laser...")
                     if self.game.shoot_laser(r, c, vertical=is_shift, power=power):
+                        print(f"[VERBOSE] SUCCESS: Station group destroyed.")
                         self.game.next_turn()
+                    else:
+                        print(f"[VERBOSE] FAILURE: No cluster found or too far from source.")
+                else:
+                    print(f"[VERBOSE] INSUFFICIENT POWER: Need at least 2 stations in a line.")
 
             # 2. Logic for building (only if cell is empty)
             elif cell == '.':
@@ -330,6 +348,7 @@ class MainFrame(wx.Frame):
         sidebar.Add(wx.StaticText(panel, label="Attack Enemy:"), 0, wx.ALL, 2)
         sidebar.Add(wx.StaticText(panel, label="L-Click: Horiz Laser"), 0, wx.ALL, 2)
         sidebar.Add(wx.StaticText(panel, label="Shift+L: Vert Laser"), 0, wx.ALL, 2)
+        sidebar.Add(wx.StaticText(panel, label="(Destroys groups of 2+ only)"), 0, wx.ALL, 2)
 
         main_sizer.Add(self.game_panel, 1, wx.EXPAND | wx.ALL, 10)
         main_sizer.Add(sidebar, 0, wx.EXPAND | wx.ALL, 10)
