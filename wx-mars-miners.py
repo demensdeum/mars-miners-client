@@ -44,6 +44,7 @@ LOCALE = {
         'requires': "Requires {n}+ Stations",
         'failed': "MISSION FAILED\nALL ELIMINATED",
         'winner': "MISSION COMPLETE!\nWINNER: {name} ({m} Mines)",
+        'draw': "MISSION COMPLETE!\nDRAW: {names} ({m} Mines)",
         'turn': "TURN: {name}",
         'ready': "READY ({n})",
         'charging': "CHARGING ({n}/{req})",
@@ -84,6 +85,7 @@ LOCALE = {
         'requires': "Нужно {n}+ станций",
         'failed': "МИССИЯ ПРОВАЛЕНА\nВСЕ ПОГИБЛИ",
         'winner': "МИССИЯ ВЫПОЛНЕНА!\nПОБЕДИТЕЛЬ: {name} ({m} Шахт)",
+        'draw': "МИССИЯ ВЫПОЛНЕНА!\nНИЧЬЯ: {names} ({m} Шахт)",
         'turn': "ХОД: {name}",
         'ready': "ГОТОВО ({n})",
         'charging': "ЗАРЯДКА ({n}/{req})",
@@ -183,7 +185,6 @@ class MarsMinersGame:
         return max_p
 
     def can_player_move(self, p):
-        """Check if player can build anything (Stations or Mines)"""
         if self.player_lost[p]: return False
         for r in range(self.size):
             for c in range(self.size):
@@ -208,20 +209,16 @@ class MarsMinersGame:
         return False
 
     def next_turn(self):
-        # Update loss state for all players first
         for p_id in range(1, 5):
             if self.roles[p_id] != 'none' and not self.player_lost[p_id]:
                 if not self.can_player_move(p_id):
                     self.player_lost[p_id] = True
 
-        # Check if any moves are left at all in the game
         active_players = [p_id for p_id in range(1, 5) if self.roles[p_id] != 'none' and not self.player_lost[p_id]]
-
         if not active_players:
             self.game_over = True
             return
 
-        # Attempt to find the next player who can actually act
         start_turn = self.turn
         self.turn = self.turn % 4 + 1
         while self.roles[self.turn] == 'none' or self.player_lost[self.turn]:
@@ -251,54 +248,43 @@ class RoleDialog(wx.Dialog):
             self.GetSizer().Clear(True)
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
-
         lang_panel = wx.Panel(self)
         lang_panel.SetBackgroundColour(wx.Colour(50, 50, 50))
         lang_inner_sizer = wx.BoxSizer(wx.HORIZONTAL)
-
         lang_label = wx.StaticText(lang_panel, label=self.t('lang_label'))
         lang_label.SetForegroundColour(wx.WHITE)
         lang_inner_sizer.Add(lang_label, 0, wx.ALL | wx.CENTER, 10)
-
         self.lang_choice = wx.Choice(lang_panel, choices=["English", "Русский"])
         self.lang_choice.SetSelection(0 if self.lang == 'en' else 1)
         self.lang_choice.Bind(wx.EVT_CHOICE, self.OnLangChange)
         lang_inner_sizer.Add(self.lang_choice, 1, wx.ALL | wx.CENTER, 10)
-
         lang_panel.SetSizer(lang_inner_sizer)
         main_sizer.Add(lang_panel, 0, wx.EXPAND | wx.BOTTOM, 10)
 
         main_sizer.Add(wx.StaticText(self, label=self.t('assign_roles')), 0, wx.ALL | wx.CENTER, 5)
-
         self.role_choices = []
         role_opts = [self.t('human'), self.t('ai'), self.t('none')]
-
         for i in range(1, 5):
             hbox = wx.BoxSizer(wx.HORIZONTAL)
             hbox.Add(wx.StaticText(self, label=f"{self.t('player')} {i}: "), 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
             choice = wx.Choice(self, choices=role_opts)
-
             if self.cached_roles:
-                role_val = self.cached_roles[i]
                 mapping = {'human': 0, 'ai': 1, 'none': 2}
-                choice.SetSelection(mapping.get(role_val, 0))
+                choice.SetSelection(mapping.get(self.cached_roles[i], 0))
             else:
                 choice.SetSelection(0 if i == 1 else 1)
-
             hbox.Add(choice, 1, wx.EXPAND | wx.ALL, 5)
             self.role_choices.append(choice)
             main_sizer.Add(hbox, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
         main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND | wx.ALL, 10)
-
         main_sizer.Add(wx.StaticText(self, label=self.t('map_size')), 0, wx.LEFT, 15)
         self.map_size_choice = wx.Choice(self, choices=["10 x 10", "15 x 15", "20 x 20"])
         self.map_size_choice.SetSelection(self.cached_size_idx)
         main_sizer.Add(self.map_size_choice, 0, wx.EXPAND | wx.ALL, 15)
 
         main_sizer.Add(wx.StaticText(self, label=self.t('weapon_req')), 0, wx.LEFT, 15)
-        req_options = [f"{i} {self.t('stations')}" for i in range(3, 11)]
-        self.weapon_req_choice = wx.Choice(self, choices=req_options)
+        self.weapon_req_choice = wx.Choice(self, choices=[f"{i} {self.t('stations')}" for i in range(3, 11)])
         self.weapon_req_choice.SetSelection(self.cached_weapon_idx)
         main_sizer.Add(self.weapon_req_choice, 0, wx.EXPAND | wx.ALL, 15)
 
@@ -312,15 +298,11 @@ class RoleDialog(wx.Dialog):
         main_sizer.Add(self.skip_checkbox, 0, wx.EXPAND | wx.ALL, 15)
 
         btn_sizer = wx.StdDialogButtonSizer()
-        self.start_btn = wx.Button(self, wx.ID_OK, label=self.t('start_btn'))
-        btn_sizer.AddButton(self.start_btn)
+        btn_sizer.AddButton(wx.Button(self, wx.ID_OK, label=self.t('start_btn')))
         btn_sizer.Realize()
-
         main_sizer.AddStretchSpacer()
         main_sizer.Add(btn_sizer, 0, wx.ALL | wx.CENTER, 15)
-
-        self.SetSizer(main_sizer)
-        self.Layout()
+        self.SetSizer(main_sizer); self.Layout()
 
     def OnLangChange(self, event):
         self.cached_roles = self.GetRoles()
@@ -329,17 +311,14 @@ class RoleDialog(wx.Dialog):
         self.cached_wait_idx = self.ai_wait_choice.GetSelection()
         self.cached_skip = self.skip_checkbox.GetValue()
         self.lang = 'en' if self.lang_choice.GetSelection() == 0 else 'ru'
-        self.SetTitle(self.t('setup_title'))
-        self.init_ui()
+        self.SetTitle(self.t('setup_title')); self.init_ui()
 
     def OnClose(self, event):
-        self.EndModal(wx.ID_CANCEL)
-        wx.GetApp().ExitMainLoop()
+        self.EndModal(wx.ID_CANCEL); wx.GetApp().ExitMainLoop()
 
     def GetRoles(self):
         mapping = {0: 'human', 1: 'ai', 2: 'none'}
         return {i+1: mapping[self.role_choices[i].GetSelection()] for i in range(4)}
-
     def GetMapSize(self): return [10, 15, 20][self.map_size_choice.GetSelection()]
     def GetWeaponReq(self): return self.weapon_req_choice.GetSelection() + 3
     def GetAiWait(self): return [0, 500, 1000, 2000][self.ai_wait_choice.GetSelection()]
@@ -375,13 +354,11 @@ class GamePanel(wx.Panel):
     def draw_cell_content(self, dc, r, c, cell):
         x, y = c * self.cell_size, r * self.cell_size
         f_size = SYMBOL_FONT_SIZE if self.game.size == 10 else (24 if self.game.size == 15 else 18)
-        font = wx.Font(f_size, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
-        dc.SetFont(font)
+        dc.SetFont(wx.Font(f_size, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         color = wx.WHITE
         for p_id, p_data in self.game.players.items():
             if cell in p_data.values():
-                color = p_data['color']
-                break
+                color = p_data['color']; break
         if cell == '█': color = wx.Colour(100, 100, 100)
         if cell == 'X': color = wx.RED
         dc.SetTextForeground(color)
@@ -399,7 +376,6 @@ class GamePanel(wx.Panel):
             for pid, p_data in self.game.players.items():
                 if cell == p_data['st'] and pid != self.game.turn:
                     enemy_id = pid; break
-
             if enemy_id:
                 power = self.game.get_line_power(self.game.turn)
                 if power >= self.game.weapon_req:
@@ -408,22 +384,15 @@ class GamePanel(wx.Panel):
                 if self.game.can_build(r, c, self.game.turn):
                     self.game.grid[r][c] = self.game.players[self.game.turn]['mi' if is_shift else 'st']
                     self.game.next_turn()
-
-            self.Refresh()
-            wx.GetTopLevelParent(self).UpdateStatus()
+            self.Refresh(); wx.GetTopLevelParent(self).UpdateStatus()
 
     def OnTimer(self, event):
         if not self.game.game_over and self.game.roles.get(self.game.turn) == 'ai':
-            self.ai_move()
-            self.game.next_turn()
-            self.Refresh()
-            wx.GetTopLevelParent(self).UpdateStatus()
+            self.ai_move(); self.game.next_turn(); self.Refresh(); wx.GetTopLevelParent(self).UpdateStatus()
 
     def ai_move(self):
         p = self.game.turn
         power = self.game.get_line_power(p)
-
-        # 1. ATTACK LOGIC
         if power >= self.game.weapon_req:
             enemy_targets = []
             for r in range(self.game.size):
@@ -431,13 +400,10 @@ class GamePanel(wx.Panel):
                     cell = self.game.grid[r][c]
                     for pid, p_data in self.game.players.items():
                         if pid != p and cell == p_data['st']:
-                            enemy_targets.append((r, c))
-                            break
+                            enemy_targets.append((r, c)); break
             if enemy_targets:
                 tr, tc = random.choice(enemy_targets)
                 if self.game.shoot_laser(tr, tc, power=power): return
-
-        # 2. BUILD LOGIC
         candidates = []
         center_map = (self.game.size / 2 - 0.5, self.game.size / 2 - 0.5)
         for r in range(self.game.size):
@@ -448,127 +414,93 @@ class GamePanel(wx.Panel):
                     open_neighbors = sum(1 for nr, nc in neighbors if self.game.grid[nr][nc] == '.')
                     dist = ((r - center_map[0])**2 + (c - center_map[1])**2)**0.5
                     candidates.append({'pos': (r, c), 'freedom': open_neighbors, 'dist': dist})
-
         if not candidates: return
         candidates.sort(key=lambda x: (x['freedom'], -x['dist']), reverse=True)
-        best_candidates = candidates[:max(1, min(3, len(candidates)))]
-        choice = random.choice(best_candidates)
+        choice = random.choice(candidates[:max(1, min(3, len(candidates)))])
         r, c = choice['pos']
-        freedom = choice['freedom']
-
-        # 3. STATION VS MINE
-        total_possible_moves = len(candidates)
         to_build = 'st'
-        if freedom == 0:
+        if choice['freedom'] == 0:
             to_build = 'st' if power < self.game.weapon_req else 'mi'
         else:
-            if total_possible_moves > 5 and random.random() < 0.2:
-                to_build = 'mi'
-            else:
-                to_build = 'st'
+            to_build = 'mi' if len(candidates) > 5 and random.random() < 0.2 else 'st'
         self.game.grid[r][c] = self.game.players[p][to_build]
 
 class MainFrame(wx.Frame):
     def __init__(self, roles, grid_size, weapon_req, allow_skip, ai_wait, lang):
         super().__init__(None, title=LOCALE[lang]['title'])
         self.game = MarsMinersGame(roles, grid_size, weapon_req, allow_skip, ai_wait, lang)
-        self.Bind(wx.EVT_CLOSE, self.OnClose)
-        self.init_ui()
+        self.Bind(wx.EVT_CLOSE, self.OnClose); self.init_ui()
 
     def init_ui(self):
-        self.DestroyChildren()
-        self.SetTitle(self.game.t('title'))
-        panel = wx.Panel(self)
-        main_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.DestroyChildren(); self.SetTitle(self.game.t('title'))
+        panel = wx.Panel(self); main_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.game_panel = GamePanel(panel, self.game)
         gp_size = self.game.size * self.game_panel.cell_size
         self.game_panel.SetMinSize((gp_size, gp_size))
-
-        sidebar = wx.BoxSizer(wx.VERTICAL)
-        sidebar.SetMinSize((SIDEBAR_WIDTH, -1))
+        sidebar = wx.BoxSizer(wx.VERTICAL); sidebar.SetMinSize((SIDEBAR_WIDTH, -1))
         sidebar.Add(wx.StaticText(panel, label=self.game.t('expedition_log')), 0, wx.ALL, 10)
         self.status_label = wx.StaticText(panel, label=self.game.t('initializing'))
         sidebar.Add(self.status_label, 0, wx.ALL, 10)
         self.btn_skip = wx.Button(panel, label=self.game.t('skip_turn'))
-        self.btn_skip.Bind(wx.EVT_BUTTON, self.OnSkipTurn)
-        sidebar.Add(self.btn_skip, 0, wx.ALL | wx.EXPAND, 10)
+        self.btn_skip.Bind(wx.EVT_BUTTON, self.OnSkipTurn); sidebar.Add(self.btn_skip, 0, wx.ALL | wx.EXPAND, 10)
         if not self.game.allow_skip: self.btn_skip.Hide()
-
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
         self.score_labels = []
         for i in range(1, 5):
             if self.game.roles[i] != 'none':
                 lbl = wx.StaticText(panel, label="")
                 lbl.SetForegroundColour(self.game.players[i]['color'])
-                self.score_labels.append((i, lbl))
-                sidebar.Add(lbl, 0, wx.LEFT | wx.RIGHT | wx.TOP, 5)
-
-        sidebar.AddStretchSpacer()
-        sidebar.Add(wx.StaticText(panel, label=self.game.t('storage')), 0, wx.ALL, 5)
+                self.score_labels.append((i, lbl)); sidebar.Add(lbl, 0, wx.LEFT | wx.RIGHT | wx.TOP, 5)
+        sidebar.AddStretchSpacer(); sidebar.Add(wx.StaticText(panel, label=self.game.t('storage')), 0, wx.ALL, 5)
         btn_save = wx.Button(panel, label=self.game.t('save'))
-        btn_save.Bind(wx.EVT_BUTTON, self.OnSaveGame)
-        sidebar.Add(btn_save, 0, wx.ALL | wx.EXPAND, 5)
+        btn_save.Bind(wx.EVT_BUTTON, self.OnSaveGame); sidebar.Add(btn_save, 0, wx.ALL | wx.EXPAND, 5)
         btn_load = wx.Button(panel, label=self.game.t('load'))
-        btn_load.Bind(wx.EVT_BUTTON, self.OnLoadGame)
-        sidebar.Add(btn_load, 0, wx.ALL | wx.EXPAND, 5)
-
+        btn_load.Bind(wx.EVT_BUTTON, self.OnLoadGame); sidebar.Add(btn_load, 0, wx.ALL | wx.EXPAND, 5)
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
         btn_new_game = wx.Button(panel, label=self.game.t('new_game'))
-        btn_new_game.Bind(wx.EVT_BUTTON, self.OnNewGameRequest)
-        sidebar.Add(btn_new_game, 0, wx.ALL | wx.EXPAND, 10)
-
+        btn_new_game.Bind(wx.EVT_BUTTON, self.OnNewGameRequest); sidebar.Add(btn_new_game, 0, wx.ALL | wx.EXPAND, 10)
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
         sidebar.Add(wx.StaticText(panel, label=self.game.t('controls')), 0, wx.ALL, 2)
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
         sidebar.Add(wx.StaticText(panel, label=self.game.t('attack_help')), 0, wx.ALL, 2)
-        self.req_help_label = wx.StaticText(panel, label=self.game.t('requires', n=self.game.weapon_req))
-        sidebar.Add(self.req_help_label, 0, wx.ALL, 2)
-
+        sidebar.Add(wx.StaticText(panel, label=self.game.t('requires', n=self.game.weapon_req)), 0, wx.ALL, 2)
         main_sizer.Add(self.game_panel, 1, wx.EXPAND | wx.ALL, 10)
         main_sizer.Add(sidebar, 0, wx.EXPAND | wx.ALL, 10)
-        panel.SetSizer(main_sizer)
-        self.UpdateStatus()
-        self.SetClientSize((gp_size + SIDEBAR_WIDTH + 40, gp_size + 20))
-        self.Layout(); self.Centre(); self.Show()
+        panel.SetSizer(main_sizer); self.UpdateStatus()
+        self.SetClientSize((gp_size + SIDEBAR_WIDTH + 40, gp_size + 20)); self.Layout(); self.Centre(); self.Show()
 
     def OnSaveGame(self, e):
         with wx.FileDialog(self, self.game.t('save'), wildcard="JSON (*.json)|*.json", style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT) as fd:
             if fd.ShowModal() != wx.ID_CANCEL:
                 with open(fd.GetPath(), 'w') as f: json.dump(self.game.to_dict(), f)
-
     def OnLoadGame(self, e):
         with wx.FileDialog(self, self.game.t('load'), wildcard="JSON (*.json)|*.json", style=wx.FD_OPEN|wx.FD_FILE_MUST_EXIST) as fd:
             if fd.ShowModal() != wx.ID_CANCEL:
-                with open(fd.GetPath(), 'r') as f:
-                    self.game.from_dict(json.load(f))
-                    self.init_ui()
-
+                with open(fd.GetPath(), 'r') as f: self.game.from_dict(json.load(f)); self.init_ui()
     def OnSkipTurn(self, e):
         if not self.game.game_over and self.game.roles.get(self.game.turn) == 'human':
             self.game.next_turn(); self.game_panel.Refresh(); self.UpdateStatus()
-
     def OnNewGameRequest(self, e):
         if wx.MessageDialog(self, self.game.t('abandon_msg'), self.game.t('abandon_title'), wx.YES_NO).ShowModal() == wx.ID_YES:
             dlg = RoleDialog(self, self.game.lang)
             if dlg.ShowModal() == wx.ID_OK:
-                self.game = MarsMinersGame(dlg.GetRoles(), dlg.GetMapSize(), dlg.GetWeaponReq(), dlg.GetAllowSkip(), dlg.GetAiWait(), dlg.lang)
-                self.init_ui()
-
-    def OnClose(self, event):
-        self.Destroy()
-        wx.GetApp().ExitMainLoop()
+                self.game = MarsMinersGame(dlg.GetRoles(), dlg.GetMapSize(), dlg.GetWeaponReq(), dlg.GetAllowSkip(), dlg.GetAiWait(), dlg.lang); self.init_ui()
+    def OnClose(self, event): self.Destroy(); wx.GetApp().ExitMainLoop()
 
     def UpdateStatus(self):
         scores = self.game.get_scores()
         if self.game.game_over:
-            # Winner logic: Most mines when game is over
             if not scores or all(v == 0 for v in scores.values()):
                 self.status_label.SetLabel(self.game.t('failed'))
             else:
-                winner_id = max(scores, key=scores.get)
-                winner_name = self.game.players[winner_id]['name']
-                mine_count = scores[winner_id]
-                self.status_label.SetLabel(self.game.t('winner', name=winner_name, m=mine_count))
+                max_score = max(scores.values())
+                winners = [p for p, s in scores.items() if s == max_score]
+                if len(winners) > 1:
+                    names = ", ".join(self.game.players[w]['name'] for w in winners)
+                    self.status_label.SetLabel(self.game.t('draw', names=names, m=max_score))
+                else:
+                    w = winners[0]
+                    self.status_label.SetLabel(self.game.t('winner', name=self.game.players[w]['name'], m=max_score))
             self.btn_skip.Disable()
         else:
             p_name = self.game.players[self.game.turn]['name']
