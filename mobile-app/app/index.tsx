@@ -77,7 +77,7 @@ export default function SetupScreen() {
                 grid_size: mapSize,
                 weapon_req: weaponReq,
                 allow_skip: allowSkip ? '1' : '0',
-                ai_wait: 1000, // Fixed 1000ms
+                ai_wait: 500, // Fixed 1000ms
                 lang: lang
             }
         });
