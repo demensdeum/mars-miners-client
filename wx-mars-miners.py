@@ -55,69 +55,53 @@ class MarsMinersGame:
                 max_p = max(max_p, cur)
         return max_p
 
-    def can_build(self, r, c, p, is_mine=False):
+    def can_build(self, r, c, p):
+        """Modified: Building (Station or Mine) MUST be near a Station of the same player"""
         if not (0 <= r < self.size and 0 <= c < self.size) or self.grid[r][c] != '.':
             return False
+
         adj = [(-1,0), (1,0), (0,-1), (0,1)]
-        neighbors = [self.grid[r+dr][c+dc] for dr, dc in adj if 0 <= r+dr < self.size and 0 <= c+dc < self.size]
-        if is_mine:
-            return self.players[p]['st'] in neighbors
-        return any(n in self.players[p].values() for n in neighbors)
+        target_station = self.players[p]['st']
 
-    def shoot(self, r, c, d, power):
-        dr, dc = [(-1,0), (1,0), (0,-1), (0,1)][d]
-        curr_r, curr_c = r + dr, c + dc
-        target_st = None
-        hits = 0
-        while 0 <= curr_r < self.size and 0 <= curr_c < self.size and hits < power:
-            cell = self.grid[curr_r][curr_c]
-            is_any_st = any(cell == p['st'] for p in self.players.values())
-            if is_any_st:
-                if target_st is None: target_st = cell
-                if cell == target_st:
-                    self.grid[curr_r][curr_c] = '█'; hits += 1
-                else: break
-            elif cell != '.' and target_st: break
-            curr_r, curr_c = curr_r + dr, curr_c + dc
-        return hits > 0
-
-    def destroy_line(self, r, c, vertical=False):
-        """Logic to destroy a line of enemy stations"""
-        target_st = self.grid[r][c]
-        # Check if it's an enemy station
-        is_enemy_st = any(target_st == p['st'] for pid, p in self.players.items() if pid != self.turn)
-        if not is_enemy_st:
-            return False
-
-        to_destroy = [(r, c)]
-        if vertical:
-            # Check up
-            curr_r = r - 1
-            while curr_r >= 0 and self.grid[curr_r][c] == target_st:
-                to_destroy.append((curr_r, c))
-                curr_r -= 1
-            # Check down
-            curr_r = r + 1
-            while curr_r < self.size and self.grid[curr_r][c] == target_st:
-                to_destroy.append((curr_r, c))
-                curr_r += 1
-        else:
-            # Check left
-            curr_c = c - 1
-            while curr_c >= 0 and self.grid[r][curr_c] == target_st:
-                to_destroy.append((r, curr_c))
-                curr_c -= 1
-            # Check right
-            curr_c = c + 1
-            while curr_c < self.size and self.grid[r][curr_c] == target_st:
-                to_destroy.append((r, curr_c))
-                curr_c += 1
-
-        if len(to_destroy) > 1:
-            for dr, dc in to_destroy:
-                self.grid[dr][dc] = '█'
-            return True
+        # Check if any neighbor is a station of the current player
+        for dr, dc in adj:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < self.size and 0 <= nc < self.size:
+                if self.grid[nr][nc] == target_station:
+                    return True
         return False
+
+    def shoot_laser(self, r, c, vertical, power):
+        """Fires a laser through a point in specified direction based on power"""
+        hits_made = False
+        directions = []
+        if vertical:
+            directions = [(-1, 0), (1, 0)] # Up and Down
+        else:
+            directions = [(0, -1), (0, 1)] # Left and Right
+
+        for dr, dc in directions:
+            curr_r, curr_c = r + dr, c + dc
+            hits = 0
+            target_st = None
+
+            while 0 <= curr_r < self.size and 0 <= curr_c < self.size and hits < power:
+                cell = self.grid[curr_r][curr_c]
+                is_any_st = any(cell == p['st'] for p in self.players.values())
+
+                if is_any_st:
+                    if target_st is None: target_st = cell
+                    if cell == target_st:
+                        self.grid[curr_r][curr_c] = '█'
+                        hits += 1
+                        hits_made = True
+                    else:
+                        break # Hit a different player's station line
+                elif cell != '.' and target_st:
+                    break # Hit a mine or debris after hitting a station
+
+                curr_r, curr_c = curr_r + dr, curr_c + dc
+        return hits_made
 
     def next_turn(self):
         if not any('.' in row for row in self.grid):
@@ -173,7 +157,6 @@ class GamePanel(wx.Panel):
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseClick)
-        self.Bind(wx.EVT_RIGHT_DOWN, self.OnRightClick)
 
         # AI Timer
         self.timer = wx.Timer(self)
@@ -231,48 +214,29 @@ class GamePanel(wx.Panel):
             is_shift = wx.GetKeyState(wx.WXK_SHIFT)
             cell = self.game.grid[r][c]
 
-            # 1. Logic for attacking enemy stations
-            if any(cell == p['st'] for pid, p in self.game.players.items() if pid != self.game.turn):
-                if self.game.destroy_line(r, c, vertical=is_shift):
-                    self.game.next_turn()
+            # 1. Logic for attacking enemy stations (Laser)
+            is_enemy_st = any(cell == p['st'] for pid, p in self.game.players.items() if pid != self.game.turn)
+            if is_enemy_st:
+                power = self.game.get_line_power(self.game.turn)
+                if power >= 2:
+                    if self.game.shoot_laser(r, c, vertical=is_shift, power=power):
+                        self.game.next_turn()
 
             # 2. Logic for building (only if cell is empty)
             elif cell == '.':
-                if is_shift:
-                    if self.game.can_build(r, c, self.game.turn, True):
+                if self.game.can_build(r, c, self.game.turn):
+                    if is_shift:
+                        # Build Mine
                         self.game.grid[r][c] = self.game.players[self.game.turn]['mi']
-                        self.game.next_turn()
-                else:
-                    if self.game.can_build(r, c, self.game.turn):
+                    else:
+                        # Build Station
                         self.game.grid[r][c] = self.game.players[self.game.turn]['st']
-                        self.game.next_turn()
+                    self.game.next_turn()
 
             self.Refresh()
             top_level = wx.GetTopLevelParent(self)
             if hasattr(top_level, "UpdateStatus"):
                 top_level.UpdateStatus()
-
-    def OnRightClick(self, event):
-        """Right click to fire laser (if charged)"""
-        if self.game.roles.get(self.game.turn) != 'human' or self.game.game_over:
-            return
-
-        power = self.game.get_line_power(self.game.turn)
-        if power < 2: return
-
-        x, y = event.GetPosition()
-        c, r = x // CELL_SIZE, y // CELL_SIZE
-
-        # Simplistic laser logic
-        for d in range(4):
-            if self.game.shoot(r, c, d, power):
-                self.game.next_turn()
-                break
-
-        self.Refresh()
-        top_level = wx.GetTopLevelParent(self)
-        if hasattr(top_level, "UpdateStatus"):
-            top_level.UpdateStatus()
 
     def OnTimer(self, event):
         if self.game.game_over:
@@ -290,22 +254,31 @@ class GamePanel(wx.Panel):
         p = self.game.turn
         power = self.game.get_line_power(p)
 
+        # AI Laser logic (simplified)
         if power >= 2:
             for r in range(GRID_SIZE):
                 for c in range(GRID_SIZE):
-                    for d in range(4):
-                        if self.game.shoot(r, c, d, power): return
+                    is_enemy_st = any(self.game.grid[r][c] == pd['st'] for pid, pd in self.game.players.items() if pid != p)
+                    if is_enemy_st:
+                        if self.game.shoot_laser(r, c, vertical=random.choice([True, False]), power=power):
+                            return
 
-        mines = [(r,c) for r in range(GRID_SIZE) for c in range(GRID_SIZE) if self.game.can_build(r, c, p, True)]
-        if mines:
-            r, c = random.choice(mines)
-            self.game.grid[r][c] = self.game.players[p]['mi']
-            return
+        # AI Build logic: check all neighbors of existing stations
+        stations = [(r,c) for r in range(GRID_SIZE) for c in range(GRID_SIZE) if self.game.grid[r][c] == self.game.players[p]['st']]
+        build_targets = []
+        for r_s, c_s in stations:
+            for dr, dc in [(-1,0), (1,0), (0,-1), (0,1)]:
+                nr, nc = r_s + dr, c_s + dc
+                if self.game.can_build(nr, nc, p):
+                    build_targets.append((nr, nc))
 
-        stations = [(r,c) for r in range(GRID_SIZE) for c in range(GRID_SIZE) if self.game.can_build(r, c, p)]
-        if stations:
-            r, c = min(stations, key=lambda x: (x[0]-4.5)**2 + (x[1]-4.5)**2)
-            self.game.grid[r][c] = self.game.players[p]['st']
+        if build_targets:
+            r, c = random.choice(build_targets)
+            # AI randomly decides to build mine or station (prefer stations early)
+            if random.random() < 0.3:
+                self.game.grid[r][c] = self.game.players[p]['mi']
+            else:
+                self.game.grid[r][c] = self.game.players[p]['st']
 
 class MainFrame(wx.Frame):
     def __init__(self, roles):
@@ -350,9 +323,13 @@ class MainFrame(wx.Frame):
         sidebar.Add(btn_new_game, 0, wx.ALL | wx.EXPAND, 10)
 
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
-        sidebar.Add(wx.StaticText(panel, label="L-Click: Station"), 0, wx.ALL, 5)
-        sidebar.Add(wx.StaticText(panel, label="Shift+L: Mine"), 0, wx.ALL, 5)
-        sidebar.Add(wx.StaticText(panel, label="R-Click: Laser"), 0, wx.ALL, 5)
+        sidebar.Add(wx.StaticText(panel, label="Build must be near your Station!"), 0, wx.ALL, 5)
+        sidebar.Add(wx.StaticText(panel, label="L-Click: Station"), 0, wx.ALL, 2)
+        sidebar.Add(wx.StaticText(panel, label="Shift+L: Mine"), 0, wx.ALL, 2)
+        sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
+        sidebar.Add(wx.StaticText(panel, label="Attack Enemy:"), 0, wx.ALL, 2)
+        sidebar.Add(wx.StaticText(panel, label="L-Click: Horiz Laser"), 0, wx.ALL, 2)
+        sidebar.Add(wx.StaticText(panel, label="Shift+L: Vert Laser"), 0, wx.ALL, 2)
 
         main_sizer.Add(self.game_panel, 1, wx.EXPAND | wx.ALL, 10)
         main_sizer.Add(sidebar, 0, wx.EXPAND | wx.ALL, 10)
@@ -385,7 +362,7 @@ class MainFrame(wx.Frame):
             p_data = self.game.players.get(self.game.turn)
             if p_data:
                 power = self.game.get_line_power(self.game.turn)
-                charge = "READY" if power >= 2 else "CHARGING"
+                charge = f"READY ({power})" if power >= 2 else "CHARGING"
                 self.status_label.SetLabel(f"TURN: {p_data['name']}\nLASER: {charge}")
 
         scores = self.game.get_scores()
