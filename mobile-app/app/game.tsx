@@ -108,14 +108,16 @@ function GameView({ game, onBack }: GameViewProps) {
         let bgColor = '#1e1e1e';
         if (isWeaponPart) bgColor = '#504614';
 
+        // Dead cells (destroyed stations) show as grey)
+        if (item === '█') bgColor = '#646464';
+
         if (item === '.' && isHumanTurn && game.canBuild(r, c, currentTurn)) {
             bgColor = '#1e3a5f';
         }
 
         // Determine text color
         let color = '#fff';
-        if (item === '█') color = '#646464';
-        else if (item === 'X') color = 'red';
+        if (item === 'X') color = 'red';
         else {
             for (let pidStr in game.players) {
                 const p = game.players[parseInt(pidStr) as PlayerId];
@@ -126,13 +128,16 @@ function GameView({ game, onBack }: GameViewProps) {
             }
         }
 
+        // Don't show symbol for dead cells or empty cells
+        const displayText = (item === '.' || item === '█') ? '' : item;
+
         return (
             <TouchableOpacity
                 style={[styles.cell, { width: cellSize, height: cellSize, backgroundColor: bgColor }]}
                 onPress={() => handleCellPress(r, c)}
                 activeOpacity={0.7}
             >
-                <Text style={{ color, fontSize: cellSize * 0.7, fontWeight: 'bold' }}>{item !== '.' ? item : ''}</Text>
+                <Text style={{ color, fontSize: cellSize * 0.7, fontWeight: 'bold' }}>{displayText}</Text>
             </TouchableOpacity>
         );
     };
