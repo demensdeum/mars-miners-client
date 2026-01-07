@@ -90,28 +90,10 @@ export default function GameScreen() {
 
     // Quit/Back
     const handleBack = () => {
-        if (Platform.OS === 'web') {
-            if (window.confirm(t('exit_msg', game.lang))) {
-                router.replace('/');
-            }
-        } else {
-            Alert.alert(
-                t('exit_title', game.lang),
-                t('exit_msg', game.lang),
-                [
-                    { text: 'No', style: 'cancel' },
-                    { text: 'Yes', onPress: () => router.replace('/') }
-                ]
-            );
-        }
+        router.replace('/');
     };
 
-    const handleSkip = () => {
-        if (isHumanTurn && game.allow_skip) {
-            game.nextTurn();
-            forceUpdate();
-        }
-    };
+
 
     // Rendering Helpers
     const weaponCells = highlight ? game.getWeaponCells() : new Set();
@@ -188,19 +170,21 @@ export default function GameScreen() {
                 <View style={{ width: 40 }} />
             </View>
 
-            <View style={styles.gridContainer}>
-                <FlatList
-                    data={flatGrid}
-                    renderItem={renderCell}
-                    keyExtractor={(_, i) => i.toString()}
-                    numColumns={game.size}
-                    key={game.size} // Force remount if size changes (though navigation resets game usually)
-                    scrollEnabled={false}
-                />
-            </View>
+            <View style={styles.contentRow}>
+                <View style={styles.gridContainer}>
+                    <FlatList
+                        data={flatGrid}
+                        renderItem={renderCell}
+                        keyExtractor={(_, i) => i.toString()}
+                        numColumns={game.size}
+                        key={game.size}
+                        scrollEnabled={false}
+                    />
+                </View>
 
-            <View style={styles.controls}>
-                <View style={styles.row}>
+                <View style={styles.sidePanel}>
+                    <Text style={styles.panelTitle}>{t('build_mode', game.lang)}</Text>
+
                     <TouchableOpacity
                         style={[styles.cBtn, buildMode === 'st' ? styles.activeBtn : {}]}
                         onPress={() => setBuildMode('st')}
@@ -208,6 +192,7 @@ export default function GameScreen() {
                     >
                         <Text style={styles.cBtnText}>{t('station_btn', game.lang)}</Text>
                     </TouchableOpacity>
+
                     <TouchableOpacity
                         style={[styles.cBtn, buildMode === 'mi' ? styles.activeBtn : {}]}
                         onPress={() => setBuildMode('mi')}
@@ -215,27 +200,24 @@ export default function GameScreen() {
                     >
                         <Text style={styles.cBtnText}>{t('mine_btn', game.lang)}</Text>
                     </TouchableOpacity>
-                </View>
 
-                {game.allow_skip && (
-                    <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} disabled={!isHumanTurn}>
-                        <Text style={styles.cBtnText}>{t('skip_turn', game.lang)}</Text>
-                    </TouchableOpacity>
-                )}
 
-                {/* Scores */}
-                <View style={styles.scores}>
-                    {[1, 2, 3, 4].map(pid => {
-                        const id = pid as PlayerId;
-                        if (game.roles[id] === 'none') return null;
-                        const score = game.getScores()[id] || 0;
-                        const isLost = game.player_lost[id];
-                        return (
-                            <Text key={id} style={{ color: isLost ? '#666' : game.players[id].color, fontSize: 12 }}>
-                                {game.players[id].name}: {score}
-                            </Text>
-                        );
-                    })}
+                    <View style={styles.divider} />
+
+                    {/* Scores */}
+                    <View style={styles.scores}>
+                        {[1, 2, 3, 4].map(pid => {
+                            const id = pid as PlayerId;
+                            if (game.roles[id] === 'none') return null;
+                            const score = game.getScores()[id] || 0;
+                            const isLost = game.player_lost[id];
+                            return (
+                                <Text key={id} style={{ color: isLost ? '#666' : game.players[id].color, fontSize: 12, marginBottom: 4 }}>
+                                    {game.players[id].name}: {score}
+                                </Text>
+                            );
+                        })}
+                    </View>
                 </View>
             </View>
         </View>
@@ -243,18 +225,26 @@ export default function GameScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#121212', alignItems: 'center', paddingTop: 40 },
-    header: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 10, marginBottom: 10, height: 60 },
+    container: { flex: 1, backgroundColor: '#121212', paddingTop: 40 },
+    header: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 10, marginBottom: 10, height: 60, borderBottomWidth: 1, borderBottomColor: '#333' },
     backBtn: { padding: 10 },
     btnText: { color: '#fff', fontSize: 24 },
     headerTitle: { flex: 1, color: '#fff', textAlign: 'center', fontSize: 14 },
-    gridContainer: { alignItems: 'center', justifyContent: 'center', marginVertical: 10 },
+
+    contentRow: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center' },
+
+    gridContainer: { flex: 2, alignItems: 'center', justifyContent: 'center', paddingTop: 20 },
     cell: { borderWidth: 1, borderColor: '#333', alignItems: 'center', justifyContent: 'center' },
-    controls: { width: '100%', padding: 20 },
-    row: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 10 },
-    cBtn: { backgroundColor: '#333', padding: 10, borderRadius: 5, minWidth: 100, alignItems: 'center' },
+
+    sidePanel: { flex: 1, backgroundColor: '#1a1a1a', height: '100%', padding: 15, borderLeftWidth: 1, borderLeftColor: '#333', alignItems: 'center' },
+    panelTitle: { color: '#aaa', fontSize: 12, marginBottom: 10, alignSelf: 'flex-start' },
+
+    cBtn: { backgroundColor: '#333', padding: 12, borderRadius: 5, width: '100%', alignItems: 'center', marginBottom: 10 },
     activeBtn: { backgroundColor: '#007AFF' },
-    cBtnText: { color: '#fff', fontSize: 14 },
-    skipBtn: { backgroundColor: '#444', padding: 10, borderRadius: 5, alignItems: 'center', marginTop: 5 },
-    scores: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 15, flexWrap: 'wrap' }
+    cBtnText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+
+    skipBtn: { backgroundColor: '#444', padding: 10, borderRadius: 5, alignItems: 'center', width: '100%' },
+
+    divider: { width: '100%', height: 1, backgroundColor: '#333', marginVertical: 20 },
+    scores: { width: '100%' }
 });

@@ -146,10 +146,6 @@ export default function SetupScreen() {
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.row}>
-                <Text style={styles.label}>{t('allow_skip', lang)}</Text>
-                <Switch value={allowSkip} onValueChange={setAllowSkip} />
-            </View>
 
             <View style={styles.spacer} />
 
