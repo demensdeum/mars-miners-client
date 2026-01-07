@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MarsMinersGame, PlayerRole, PlayerId } from '../src/logic/MarsMinersGame';
@@ -47,10 +48,41 @@ export default function SetupScreen() {
         return t('slow', lang);
     };
 
+    const [loaded, setLoaded] = useState(false);
+
+    // Load defaults
+    useEffect(() => {
+        (async () => {
+            try {
+                const saved = await AsyncStorage.getItem('mm_setup_config');
+                if (saved) {
+                    const config = JSON.parse(saved);
+                    if (config.lang) setLang(config.lang);
+                    if (config.roles) setRoles(config.roles);
+                    if (config.mapSize) setMapSize(config.mapSize);
+                    if (config.weaponReq) setWeaponReq(config.weaponReq);
+                    if (config.aiWait !== undefined) setAiWait(config.aiWait);
+                    if (config.allowSkip !== undefined) setAllowSkip(config.allowSkip);
+                }
+            } catch (e) {
+                console.log('Failed to load settings', e);
+            } finally {
+                setLoaded(true);
+            }
+        })();
+    }, []);
+
+    // Auto-save on change
+    useEffect(() => {
+        if (!loaded) return;
+        const config = { lang, roles, mapSize, weaponReq, aiWait, allowSkip };
+        AsyncStorage.setItem('mm_setup_config', JSON.stringify(config)).catch(e => {
+            console.log('Failed to save settings', e);
+        });
+    }, [loaded, lang, roles, mapSize, weaponReq, aiWait, allowSkip]);
+
     const startGame = () => {
         // Pass config to game screen.
-        // We can't pass the whole object easily via URL params if it gets too complex, 
-        // but these are simple primitives.
         router.push({
             pathname: '/game',
             params: {
