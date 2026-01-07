@@ -15,6 +15,7 @@ class MarsMinersGame:
         self.grid = [['.' for _ in range(self.size)] for _ in range(self.size)]
         self.roles = roles
         self.weapon_req = weapon_req  # New dynamic requirement
+        self.player_lost = {1: False, 2: False, 3: False, 4: False}
         self.players = {
             1: {'st': '↑', 'mi': '○', 'name': 'P1', 'pos': (0,0), 'color': wx.Colour(255, 100, 100)},
             2: {'st': '↓', 'mi': '△', 'name': 'P2', 'pos': (9,9), 'color': wx.Colour(100, 255, 100)},
@@ -29,6 +30,7 @@ class MarsMinersGame:
                 self.grid[r][c] = self.players[p_id]['st']
             else:
                 self.grid[r][c] = 'X'
+                self.player_lost[p_id] = True
 
         # Find the first active player
         self.turn = 1
@@ -56,6 +58,27 @@ class MarsMinersGame:
                 max_p = max(max_p, cur)
         return max_p
 
+    def can_player_move(self, p):
+        """Checks if a player has any possible move (build or shoot)"""
+        if self.player_lost[p]:
+            return False
+
+        # Check if they can build anywhere
+        for r in range(self.size):
+            for c in range(self.size):
+                if self.can_build(r, c, p):
+                    return True
+
+        # Check if they can shoot (if power requirement met)
+        if self.get_line_power(p) >= self.weapon_req:
+            for r in range(self.size):
+                for c in range(self.size):
+                    cell = self.grid[r][c]
+                    # Can shoot any non-empty cell that isn't already rubble
+                    if cell != '.' and cell != '█':
+                        return True
+        return False
+
     def can_build(self, r, c, p):
         """Building (Station or Mine) MUST be near a Station of the same player"""
         if not (0 <= r < self.size and 0 <= c < self.size) or self.grid[r][c] != '.':
@@ -79,13 +102,25 @@ class MarsMinersGame:
         return False
 
     def next_turn(self):
-        if not any('.' in row for row in self.grid):
+        # Check if any player still has valid moves
+        players_able_to_move = 0
+        for p_id in range(1, 5):
+            if self.roles[p_id] != 'none' and not self.player_lost[p_id]:
+                if not self.can_player_move(p_id):
+                    self.player_lost[p_id] = True
+                    print(f"[LOG] Player {p_id} has no moves and is ELIMINATED.")
+                else:
+                    players_able_to_move += 1
+
+        if players_able_to_move == 0:
             self.game_over = True
             return
 
         start_turn = self.turn
         self.turn = self.turn % 4 + 1
-        while self.roles[self.turn] == 'none':
+
+        # Skip players who are "none" or "lost"
+        while self.roles[self.turn] == 'none' or self.player_lost[self.turn]:
             self.turn = self.turn % 4 + 1
             if self.turn == start_turn:
                 self.game_over = True
@@ -282,7 +317,7 @@ class MainFrame(wx.Frame):
 
         for i in range(1, 5):
             if roles[i] != 'none':
-                lbl = wx.StaticText(panel, label=f"P{i}: 0")
+                lbl = wx.StaticText(panel, label=f"P{i}: ACTIVE")
                 lbl.SetForegroundColour(self.game.players[i]['color'])
                 self.score_labels.append((i, lbl))
                 sidebar.Add(lbl, 0, wx.LEFT | wx.RIGHT | wx.TOP, 5)
@@ -328,7 +363,13 @@ class MainFrame(wx.Frame):
 
     def UpdateStatus(self):
         if self.game.game_over:
-            self.status_label.SetLabel("MISSION COMPLETE!")
+            # Find winner based on mines
+            scores = self.game.get_scores()
+            if not scores:
+                self.status_label.SetLabel("MISSION FAILED\nALL ELIMINATED")
+            else:
+                winner_id = max(scores, key=scores.get)
+                self.status_label.SetLabel(f"MISSION COMPLETE!\nWINNER: {self.game.players[winner_id]['name']}")
         else:
             p_data = self.game.players.get(self.game.turn)
             if p_data:
@@ -339,7 +380,11 @@ class MainFrame(wx.Frame):
 
         scores = self.game.get_scores()
         for p_id, lbl in self.score_labels:
-            lbl.SetLabel(f"{self.game.players[p_id]['name']}: {scores.get(p_id, 0)} (Mines)")
+            if self.game.player_lost[p_id]:
+                lbl.SetLabel(f"{self.game.players[p_id]['name']}: LOST (Mines: {scores.get(p_id, 0)})")
+                lbl.SetForegroundColour(wx.Colour(150, 150, 150)) # Grey out lost players
+            else:
+                lbl.SetLabel(f"{self.game.players[p_id]['name']}: {scores.get(p_id, 0)} Mines")
 
 if __name__ == "__main__":
     app = wx.App()
