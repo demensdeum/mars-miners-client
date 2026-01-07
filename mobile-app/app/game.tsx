@@ -126,6 +126,10 @@ export default function GameScreen() {
         let bgColor = '#1e1e1e';
         if (isWeaponPart) bgColor = '#504614';
 
+        if (item === '.' && isHumanTurn && game.canBuild(r, c, currentTurn)) {
+            bgColor = '#1e3a5f';
+        }
+
         // Determine text color
         let color = '#fff';
         if (item === '█') color = '#646464';
