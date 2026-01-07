@@ -4,18 +4,18 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch } from 're
 import { useRouter } from 'expo-router';
 import { MarsMinersGame, PlayerRole, PlayerId } from '../src/logic/MarsMinersGame';
 import { t, LOCALE } from '../src/logic/locales';
+import { getLocales } from 'expo-localization';
 
 export default function SetupScreen() {
     const router = useRouter();
-    const [lang] = useState<'en' | 'ru'>('en');
+    const deviceLang = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
+    const [lang] = useState<'en' | 'ru'>(deviceLang);
     const [roles, setRoles] = useState<Record<PlayerId, PlayerRole>>({
         1: 'human', 2: 'ai', 3: 'none', 4: 'none'
     });
     const [mapSize, setMapSize] = useState(10);
     const [weaponReq, setWeaponReq] = useState(4);
-    const [aiWait, setAiWait] = useState(0);
     const [allowSkip, setAllowSkip] = useState(true);
-
 
 
     const cycleRole = (pid: PlayerId) => {
@@ -36,18 +36,6 @@ export default function SetupScreen() {
         setWeaponReq(r => reqs[(reqs.indexOf(r) + 1) % reqs.length]);
     };
 
-    const cycleAiWait = () => {
-        const waits = [0, 500, 1000, 2000];
-        setAiWait(w => waits[(waits.indexOf(w) + 1) % waits.length]);
-    };
-
-    const getAiWaitLabel = (w: number) => {
-        if (w === 0) return t('asap', lang);
-        if (w === 500) return t('fast', lang);
-        if (w === 1000) return t('med', lang);
-        return t('slow', lang);
-    };
-
     const [loaded, setLoaded] = useState(false);
 
     // Load defaults
@@ -57,10 +45,10 @@ export default function SetupScreen() {
                 const saved = await AsyncStorage.getItem('mm_setup_config');
                 if (saved) {
                     const config = JSON.parse(saved);
+                    // Do not load lang, strictly use device locale
                     if (config.roles) setRoles(config.roles);
                     if (config.mapSize) setMapSize(config.mapSize);
                     if (config.weaponReq) setWeaponReq(config.weaponReq);
-                    if (config.aiWait !== undefined) setAiWait(config.aiWait);
                     if (config.allowSkip !== undefined) setAllowSkip(config.allowSkip);
                 }
             } catch (e) {
@@ -74,11 +62,11 @@ export default function SetupScreen() {
     // Auto-save on change
     useEffect(() => {
         if (!loaded) return;
-        const config = { lang, roles, mapSize, weaponReq, aiWait, allowSkip };
+        const config = { roles, mapSize, weaponReq, allowSkip };
         AsyncStorage.setItem('mm_setup_config', JSON.stringify(config)).catch(e => {
             console.log('Failed to save settings', e);
         });
-    }, [loaded, lang, roles, mapSize, weaponReq, aiWait, allowSkip]);
+    }, [loaded, roles, mapSize, weaponReq, allowSkip]);
 
     const startGame = () => {
         // Pass config to game screen.
@@ -89,7 +77,7 @@ export default function SetupScreen() {
                 grid_size: mapSize,
                 weapon_req: weaponReq,
                 allow_skip: allowSkip ? '1' : '0',
-                ai_wait: aiWait,
+                ai_wait: 1000, // Fixed 1000ms
                 lang: lang
             }
         });
@@ -98,8 +86,6 @@ export default function SetupScreen() {
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <Text style={styles.title}>{t('setup_title', lang)}</Text>
-
-
 
             <Text style={styles.sectionHeader}>{t('assign_roles', lang)}</Text>
             {[1, 2, 3, 4].map(i => {
@@ -130,13 +116,6 @@ export default function SetupScreen() {
                 <Text style={styles.label}>{t('weapon_req', lang)}</Text>
                 <TouchableOpacity onPress={cycleWeaponReq} style={styles.button}>
                     <Text style={styles.buttonText}>{weaponReq} {t('stations', lang)}</Text>
-                </TouchableOpacity>
-            </View>
-
-            <View style={styles.row}>
-                <Text style={styles.label}>{t('ai_wait', lang)}</Text>
-                <TouchableOpacity onPress={cycleAiWait} style={styles.button}>
-                    <Text style={styles.buttonText}>{getAiWaitLabel(aiWait)}</Text>
                 </TouchableOpacity>
             </View>
 
