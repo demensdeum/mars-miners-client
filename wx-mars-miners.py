@@ -310,8 +310,14 @@ class GamePanel(wx.Panel):
 class MainFrame(wx.Frame):
     def __init__(self, roles):
         super().__init__(None, title="Mars Miners: GUI Edition", size=(WINDOW_WIDTH, WINDOW_HEIGHT))
+        self.start_new_game(roles)
 
+    def start_new_game(self, roles):
+        """Initialize or restart the game UI and state"""
         self.game = MarsMinersGame(roles)
+
+        # Clear existing children if restarting
+        self.DestroyChildren()
 
         panel = wx.Panel(self)
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -337,6 +343,13 @@ class MainFrame(wx.Frame):
                 sidebar.Add(lbl, 0, wx.LEFT | wx.RIGHT | wx.TOP, 5)
 
         sidebar.AddStretchSpacer()
+
+        # New Game Button
+        btn_new_game = wx.Button(panel, label="New Game")
+        btn_new_game.Bind(wx.EVT_BUTTON, self.OnNewGameRequest)
+        sidebar.Add(btn_new_game, 0, wx.ALL | wx.EXPAND, 10)
+
+        sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
         sidebar.Add(wx.StaticText(panel, label="L-Click: Station"), 0, wx.ALL, 5)
         sidebar.Add(wx.StaticText(panel, label="Shift+L: Mine"), 0, wx.ALL, 5)
         sidebar.Add(wx.StaticText(panel, label="R-Click: Laser"), 0, wx.ALL, 5)
@@ -346,8 +359,24 @@ class MainFrame(wx.Frame):
 
         panel.SetSizer(main_sizer)
         self.UpdateStatus()
+        self.Layout()
         self.Centre()
         self.Show()
+
+    def OnNewGameRequest(self, event):
+        """Confirm with user then restart role selection"""
+        msg = "Are you sure you want to abandon the current mission and start over?"
+        dlg = wx.MessageDialog(self, msg, "Abandon Mission", wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+
+        if dlg.ShowModal() == wx.ID_YES:
+            role_dlg = RoleDialog(self)
+            if role_dlg.ShowModal() == wx.ID_OK:
+                new_roles = role_dlg.GetRoles()
+                role_dlg.Destroy()
+                self.start_new_game(new_roles)
+            else:
+                role_dlg.Destroy()
+        dlg.Destroy()
 
     def UpdateStatus(self):
         if self.game.game_over:
