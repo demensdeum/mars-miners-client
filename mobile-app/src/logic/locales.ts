@@ -1,0 +1,68 @@
+export const LOCALE = {
+    'en': {
+        'build_mode': "BUILD MODE:",
+        'station_btn': "Station (Path)",
+        'mine_btn': "Mine (Points)",
+        'title': "Mars Miners: Mobile Edition",
+        'setup_title': "Mars Expedition Setup",
+        'assign_roles': "Assign Roles for Players:",
+        'player': "Player", 'human': "Human", 'ai': "AI", 'none': "None",
+        'map_size': "Map Size:", 'weapon_req': "Weapon Req (Line Length):",
+        'stations': "Stations", 'ai_wait': "AI Turn Wait Time:",
+        'asap': "ASAP (0ms)", 'fast': "Fast (500ms)", 'med': "Medium (1000ms)", 'slow': "Slow (2000ms)",
+        'allow_skip': "Allow manual Turn Skip", 'start_btn': "Start Mission",
+        'expedition_log': "--- EXPEDITION LOG ---", 'initializing': "Initializing...",
+        'skip_turn': "Skip Turn", 'active': "ACTIVE", 'lost': "BLOCKED",
+        'mines': "Mines", 'storage': "--- STORAGE ---", 'save': "Save Mission",
+        'load': "Load Mission", 'new_game': "New Game", 'restart_game': "Restart Mission",
+        'controls': "Tap: Place selected\nShift needed? No.",
+        'attack_help': "Attack Enemy:\nTap enemy station",
+        'requires': "Requires {n}+ Stations",
+        'failed': "MISSION FAILED\nALL ELIMINATED",
+        'winner': "MISSION COMPLETE!\nWINNER: {name} ({m} Mines)",
+        'draw': "MISSION COMPLETE!\nDRAW: {names} ({m} Mines)",
+        'turn': "TURN: {name}", 'ready': "READY ({n})", 'charging': "CHARGING ({n}/{req})",
+        'abandon_msg': "Are you sure you want to abandon the current mission?",
+        'abandon_title': "Abandon Mission", 'exit_msg': "Exit game?", 'exit_title': "Exit",
+        'lang_label': "Language / Язык:",
+        'highlight_weapon': "Highlight weapons",
+    },
+    'ru': {
+        'build_mode': "РЕЖИМ СТРОЙКИ:",
+        'station_btn': "Станция (Путь)",
+        'mine_btn': "Шахта (Очки)",
+        'title': "Марсианские Шахтеры",
+        'setup_title': "Настройка экспедиции",
+        'assign_roles': "Назначьте роли:",
+        'player': "Игрок", 'human': "Человек", 'ai': "ИИ", 'none': "Нет",
+        'map_size': "Размер карты:", 'weapon_req': "Длина орудия:",
+        'stations': "Станций", 'ai_wait': "Задержка ИИ:",
+        'asap': "0мс", 'fast': "500мс", 'med': "1000мс", 'slow': "2000мс",
+        'allow_skip': "Пропуск хода", 'start_btn': "Начать",
+        'expedition_log': "--- ЖУРНАЛ ---", 'initializing': "Загрузка...",
+        'skip_turn': "Пропустить ход", 'active': "АКТИВЕН", 'lost': "БЛОК",
+        'mines': "Шахт", 'storage': "--- ХРАНИЛИЩЕ ---", 'save': "Сохранить",
+        'load': "Загрузить", 'new_game': "Новая игра", 'restart_game': "Заново",
+        'controls': "Тап: Строить выбор",
+        'attack_help': "Атака:\nТап по врагу",
+        'requires': "Нужно {n}+ станций",
+        'failed': "МИССИЯ ПРОВАЛЕНА",
+        'winner': "ПОБЕДА: {name} ({m} Шахт)",
+        'draw': "НИЧЬЯ: {names} ({m} Шахт)",
+        'turn': "ХОД: {name}", 'ready': "ГОТОВО ({n})", 'charging': "ЗАРЯДКА ({n}/{req})",
+        'abandon_msg': "Прервать миссию?", 'abandon_title': "Прервать",
+        'exit_msg': "Выйти?", 'exit_title': "Выход",
+        'lang_label': "Язык:",
+        'highlight_weapon': "Подсветка орудий",
+    }
+};
+
+export function t(key: string, lang: 'en' | 'ru' = 'en', params?: Record<string, any>): string {
+    let str = (LOCALE[lang] as any)[key] || (LOCALE['en'] as any)[key] || key;
+    if (params) {
+        for (const k in params) {
+            str = str.replace(`{${k}}`, params[k]);
+        }
+    }
+    return str;
+}
