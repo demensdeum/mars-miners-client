@@ -27,7 +27,7 @@ export default function SetupScreen() {
     };
 
     const cycleWeaponReq = () => {
-        const reqs = [3, 4, 5, 6, 7, 8, 9, 10];
+        const reqs = [3, 4, 5];
         setWeaponReq(r => reqs[(reqs.indexOf(r) + 1) % reqs.length]);
     };
 
