@@ -10,10 +10,11 @@ WINDOW_HEIGHT = 550
 
 class MarsMinersGame:
     """Core Game Logic adapted for GUI"""
-    def __init__(self, roles):
+    def __init__(self, roles, weapon_req=4):
         self.size = GRID_SIZE
         self.grid = [['.' for _ in range(self.size)] for _ in range(self.size)]
         self.roles = roles
+        self.weapon_req = weapon_req  # New dynamic requirement
         self.players = {
             1: {'st': '↑', 'mi': '○', 'name': 'P1', 'pos': (0,0), 'color': wx.Colour(255, 100, 100)},
             2: {'st': '↓', 'mi': '△', 'name': 'P2', 'pos': (9,9), 'color': wx.Colour(100, 255, 100)},
@@ -72,7 +73,6 @@ class MarsMinersGame:
 
     def shoot_laser(self, r, c, power):
         """Fires a precision laser. Destroys the single targeted cell if power is sufficient."""
-        # Now destroys only the one cell clicked
         if self.grid[r][c] != '.' and self.grid[r][c] != '█':
             self.grid[r][c] = '█'
             return True
@@ -92,9 +92,9 @@ class MarsMinersGame:
                 break
 
 class RoleDialog(wx.Dialog):
-    """Dialog to select player roles at the start"""
+    """Dialog to select player roles and game rules at the start"""
     def __init__(self, parent):
-        super().__init__(parent, title="Mars Expedition Setup", size=(300, 400))
+        super().__init__(parent, title="Mars Expedition Setup", size=(320, 480))
         self.roles = {}
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -112,6 +112,14 @@ class RoleDialog(wx.Dialog):
             self.choices.append(choice)
             main_sizer.Add(hbox, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
+        main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND | wx.ALL, 10)
+
+        # Weapon requirement selection
+        main_sizer.Add(wx.StaticText(self, label="Weapon Requirement (Line Length):"), 0, wx.LEFT, 15)
+        self.weapon_req_choice = wx.Choice(self, choices=["3 Stations", "4 Stations"])
+        self.weapon_req_choice.SetSelection(1) # Default to 4
+        main_sizer.Add(self.weapon_req_choice, 0, wx.EXPAND | wx.ALL, 15)
+
         btn_sizer = wx.StdDialogButtonSizer()
         start_btn = wx.Button(self, wx.ID_OK, label="Start Mission")
         btn_sizer.AddButton(start_btn)
@@ -124,6 +132,9 @@ class RoleDialog(wx.Dialog):
     def GetRoles(self):
         mapping = {0: 'human', 1: 'ai', 2: 'none'}
         return {i+1: mapping[self.choices[i].GetSelection()] for i in range(4)}
+
+    def GetWeaponReq(self):
+        return 3 if self.weapon_req_choice.GetSelection() == 0 else 4
 
 class GamePanel(wx.Panel):
     def __init__(self, parent, game):
@@ -181,7 +192,6 @@ class GamePanel(wx.Panel):
             is_shift = wx.GetKeyState(wx.WXK_SHIFT)
             cell = self.game.grid[r][c]
 
-            # Logic for attacking enemy (Station ONLY)
             enemy_id = None
             for pid, p_data in self.game.players.items():
                 if cell == p_data['st'] and pid != self.game.turn:
@@ -190,19 +200,10 @@ class GamePanel(wx.Panel):
 
             if enemy_id:
                 power = self.game.get_line_power(self.game.turn)
-                print(f"[VERBOSE] Target: Player {enemy_id} station at ({r}, {c})")
-                print(f"[VERBOSE] Attacker: Player {self.game.turn} | Power Level: {power}")
-
-                # Updated Requirement: Power must be at least 3 (3 stations in a line)
-                if power >= 3:
-                    print(f"[VERBOSE] Firing Precision Laser...")
+                if power >= self.game.weapon_req:
                     if self.game.shoot_laser(r, c, power=power):
-                        print(f"[VERBOSE] SUCCESS: Station destroyed.")
                         self.game.next_turn()
-                else:
-                    print(f"[VERBOSE] INSUFFICIENT POWER: Need at least 3 stations in a line to attack.")
 
-            # Logic for building
             elif cell == '.':
                 if self.game.can_build(r, c, self.game.turn):
                     if is_shift:
@@ -231,8 +232,7 @@ class GamePanel(wx.Panel):
         p = self.game.turn
         power = self.game.get_line_power(p)
 
-        # AI Laser logic: target enemy stations only if power >= 3
-        if power >= 3:
+        if power >= self.game.weapon_req:
             for r in range(GRID_SIZE):
                 for c in range(GRID_SIZE):
                     is_enemy_st = any(self.game.grid[r][c] == pd['st'] for pid, pd in self.game.players.items() if pid != p)
@@ -256,12 +256,12 @@ class GamePanel(wx.Panel):
                 self.game.grid[r][c] = self.game.players[p]['st']
 
 class MainFrame(wx.Frame):
-    def __init__(self, roles):
+    def __init__(self, roles, weapon_req):
         super().__init__(None, title="Mars Miners: GUI Edition", size=(WINDOW_WIDTH, WINDOW_HEIGHT))
-        self.start_new_game(roles)
+        self.start_new_game(roles, weapon_req)
 
-    def start_new_game(self, roles):
-        self.game = MarsMinersGame(roles)
+    def start_new_game(self, roles, weapon_req):
+        self.game = MarsMinersGame(roles, weapon_req)
         self.DestroyChildren()
 
         panel = wx.Panel(self)
@@ -294,12 +294,13 @@ class MainFrame(wx.Frame):
         sidebar.Add(btn_new_game, 0, wx.ALL | wx.EXPAND, 10)
 
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
-        sidebar.Add(wx.StaticText(panel, label="L-Click: Station (near yours)"), 0, wx.ALL, 2)
-        sidebar.Add(wx.StaticText(panel, label="Shift+L: Mine (near yours)"), 0, wx.ALL, 2)
+        sidebar.Add(wx.StaticText(panel, label="L-Click: Station"), 0, wx.ALL, 2)
+        sidebar.Add(wx.StaticText(panel, label="Shift+L: Mine"), 0, wx.ALL, 2)
         sidebar.Add(wx.StaticLine(panel), 0, wx.EXPAND | wx.ALL, 5)
         sidebar.Add(wx.StaticText(panel, label="Attack Enemy:"), 0, wx.ALL, 2)
         sidebar.Add(wx.StaticText(panel, label="L-Click enemy station"), 0, wx.ALL, 2)
-        sidebar.Add(wx.StaticText(panel, label="(Requires 3+ Stations in line)"), 0, wx.ALL, 2)
+        self.req_help_label = wx.StaticText(panel, label=f"(Requires {weapon_req}+ Stations)")
+        sidebar.Add(self.req_help_label, 0, wx.ALL, 2)
 
         main_sizer.Add(self.game_panel, 1, wx.EXPAND | wx.ALL, 10)
         main_sizer.Add(sidebar, 0, wx.EXPAND | wx.ALL, 10)
@@ -318,8 +319,9 @@ class MainFrame(wx.Frame):
             role_dlg = RoleDialog(self)
             if role_dlg.ShowModal() == wx.ID_OK:
                 new_roles = role_dlg.GetRoles()
+                new_req = role_dlg.GetWeaponReq()
                 role_dlg.Destroy()
-                self.start_new_game(new_roles)
+                self.start_new_game(new_roles, new_req)
             else:
                 role_dlg.Destroy()
         dlg.Destroy()
@@ -331,7 +333,8 @@ class MainFrame(wx.Frame):
             p_data = self.game.players.get(self.game.turn)
             if p_data:
                 power = self.game.get_line_power(self.game.turn)
-                charge = f"READY ({power})" if power >= 3 else f"CHARGING ({power}/3)"
+                req = self.game.weapon_req
+                charge = f"READY ({power})" if power >= req else f"CHARGING ({power}/{req})"
                 self.status_label.SetLabel(f"TURN: {p_data['name']}\nLASER: {charge}")
 
         scores = self.game.get_scores()
@@ -343,8 +346,9 @@ if __name__ == "__main__":
     dlg = RoleDialog(None)
     if dlg.ShowModal() == wx.ID_OK:
         roles = dlg.GetRoles()
+        req = dlg.GetWeaponReq()
         dlg.Destroy()
-        MainFrame(roles)
+        MainFrame(roles, req)
         app.MainLoop()
     else:
         dlg.Destroy()
