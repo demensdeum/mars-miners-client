@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Dimensions, FlatList, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Dimensions, FlatList, ActivityIndicator, Platform, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MarsMinersGame, PlayerId, PlayerRole } from '../src/logic/MarsMinersGame';
 import { t } from '../src/logic/locales';
@@ -42,6 +42,7 @@ export default function GameScreen() {
 
     const [buildMode, setBuildMode] = useState<'st' | 'mi'>('st');
     const [highlight, setHighlight] = useState(game.highlight_weapon);
+    const [showGameOverModal, setShowGameOverModal] = useState(false);
 
     // AI Loop
     useEffect(() => {
@@ -54,6 +55,13 @@ export default function GameScreen() {
             return () => clearTimeout(timer);
         }
     }, [currentTurn, isGameOver, tick]); // Tick ensures we check again if something weird happens, but mostly turn.
+
+    // Show game over modal
+    useEffect(() => {
+        if (isGameOver) {
+            setShowGameOverModal(true);
+        }
+    }, [isGameOver]);
 
     // Cell Interaction
     const handleCellPress = (r: number, c: number) => {
@@ -91,6 +99,12 @@ export default function GameScreen() {
 
     // Quit/Back
     const handleBack = () => {
+        router.replace('/');
+    };
+
+    // Handle modal OK button
+    const handleModalOk = () => {
+        setShowGameOverModal(false);
         router.replace('/');
     };
 
@@ -238,6 +252,24 @@ export default function GameScreen() {
                     <Text style={styles.btnLabel}>{t('mine_btn', game.lang)}</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Game Over Modal */}
+            <Modal
+                visible={showGameOverModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => {}}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{t('game_over', game.lang)}</Text>
+                        <Text style={styles.modalMessage}>{statusText}</Text>
+                        <TouchableOpacity style={styles.modalButton} onPress={handleModalOk}>
+                            <Text style={styles.modalButtonText}>OK</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -257,5 +289,13 @@ const styles = StyleSheet.create({
     bottomBar: { flexDirection: 'row', height: 80 },
     bottomBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333', margin: 10, borderRadius: 8 },
     activeBtn: { backgroundColor: '#007AFF' },
-    btnLabel: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
+    btnLabel: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+    
+    // Modal styles
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center' },
+    modalContent: { backgroundColor: '#2a2a2a', padding: 30, borderRadius: 15, alignItems: 'center', minWidth: 300 },
+    modalTitle: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 15 },
+    modalMessage: { fontSize: 16, color: '#ccc', textAlign: 'center', marginBottom: 25 },
+    modalButton: { backgroundColor: '#007AFF', paddingHorizontal: 30, paddingVertical: 12, borderRadius: 8 },
+    modalButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });
