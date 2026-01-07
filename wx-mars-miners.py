@@ -6,18 +6,19 @@ import time
 GRID_SIZE = 10
 CELL_SIZE = 50
 SYMBOL_FONT_SIZE = 32
-CELL_TOP_OFFSET = 12  # Constant vertical offset for symbol alignment
+CELL_TOP_OFFSET = 12
 WINDOW_WIDTH = 750
 WINDOW_HEIGHT = 550
 
 class MarsMinersGame:
     """Core Game Logic adapted for GUI"""
-    def __init__(self, roles, weapon_req=4, allow_skip=True):
+    def __init__(self, roles, weapon_req=4, allow_skip=True, ai_wait=500):
         self.size = GRID_SIZE
         self.grid = [['.' for _ in range(self.size)] for _ in range(self.size)]
         self.roles = roles
         self.weapon_req = weapon_req
         self.allow_skip = allow_skip
+        self.ai_wait = ai_wait
         self.player_lost = {1: False, 2: False, 3: False, 4: False}
         self.players = {
             1: {'st': '↑', 'mi': '○', 'name': 'P1', 'pos': (0,0), 'color': wx.Colour(255, 100, 100)},
@@ -131,7 +132,7 @@ class MarsMinersGame:
 class RoleDialog(wx.Dialog):
     """Dialog to select player roles and game rules at the start"""
     def __init__(self, parent):
-        super().__init__(parent, title="Mars Expedition Setup", size=(320, 520))
+        super().__init__(parent, title="Mars Expedition Setup", size=(320, 600))
         self.roles = {}
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -157,6 +158,12 @@ class RoleDialog(wx.Dialog):
         self.weapon_req_choice.SetSelection(1) # Default to 4
         main_sizer.Add(self.weapon_req_choice, 0, wx.EXPAND | wx.ALL, 15)
 
+        # AI Wait Time Selection
+        main_sizer.Add(wx.StaticText(self, label="AI Turn Wait Time:"), 0, wx.LEFT, 15)
+        self.ai_wait_choice = wx.Choice(self, choices=["Fast (500ms)", "Medium (1000ms)", "Slow (2000ms)"])
+        self.ai_wait_choice.SetSelection(0)
+        main_sizer.Add(self.ai_wait_choice, 0, wx.EXPAND | wx.ALL, 15)
+
         # Skip option toggle
         self.skip_checkbox = wx.CheckBox(self, label="Allow manual Turn Skip")
         self.skip_checkbox.SetValue(True)
@@ -178,6 +185,10 @@ class RoleDialog(wx.Dialog):
     def GetWeaponReq(self):
         return 3 if self.weapon_req_choice.GetSelection() == 0 else 4
 
+    def GetAiWait(self):
+        times = [500, 1000, 2000]
+        return times[self.ai_wait_choice.GetSelection()]
+
     def GetAllowSkip(self):
         return self.skip_checkbox.GetValue()
 
@@ -191,7 +202,7 @@ class GamePanel(wx.Panel):
 
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
-        self.timer.Start(500)
+        self.timer.Start(self.game.ai_wait)
 
     def OnPaint(self, event):
         dc = wx.AutoBufferedPaintDC(self)
@@ -307,12 +318,12 @@ class GamePanel(wx.Panel):
                 self.game.grid[r][c] = self.game.players[p]['st']
 
 class MainFrame(wx.Frame):
-    def __init__(self, roles, weapon_req, allow_skip):
+    def __init__(self, roles, weapon_req, allow_skip, ai_wait):
         super().__init__(None, title="Mars Miners: GUI Edition", size=(WINDOW_WIDTH, WINDOW_HEIGHT))
-        self.start_new_game(roles, weapon_req, allow_skip)
+        self.start_new_game(roles, weapon_req, allow_skip, ai_wait)
 
-    def start_new_game(self, roles, weapon_req, allow_skip):
-        self.game = MarsMinersGame(roles, weapon_req, allow_skip)
+    def start_new_game(self, roles, weapon_req, allow_skip, ai_wait):
+        self.game = MarsMinersGame(roles, weapon_req, allow_skip, ai_wait)
         self.DestroyChildren()
 
         panel = wx.Panel(self)
@@ -387,9 +398,10 @@ class MainFrame(wx.Frame):
             if role_dlg.ShowModal() == wx.ID_OK:
                 new_roles = role_dlg.GetRoles()
                 new_req = role_dlg.GetWeaponReq()
+                new_wait = role_dlg.GetAiWait()
                 new_skip = role_dlg.GetAllowSkip()
                 role_dlg.Destroy()
-                self.start_new_game(new_roles, new_req, new_skip)
+                self.start_new_game(new_roles, new_req, new_skip, new_wait)
             else:
                 role_dlg.Destroy()
         dlg.Destroy()
@@ -430,9 +442,10 @@ if __name__ == "__main__":
     if dlg.ShowModal() == wx.ID_OK:
         roles = dlg.GetRoles()
         req = dlg.GetWeaponReq()
+        wait = dlg.GetAiWait()
         skip = dlg.GetAllowSkip()
         dlg.Destroy()
-        MainFrame(roles, req, skip)
+        MainFrame(roles, req, skip, wait)
         app.MainLoop()
     else:
         dlg.Destroy()
