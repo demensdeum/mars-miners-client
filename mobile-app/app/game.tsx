@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Dimensions, FlatList, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Dimensions, FlatList, ActivityIndicator, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MarsMinersGame, PlayerId, PlayerRole } from '../src/logic/MarsMinersGame';
 import { t } from '../src/logic/locales';
@@ -90,14 +90,20 @@ export default function GameScreen() {
 
     // Quit/Back
     const handleBack = () => {
-        Alert.alert(
-            t('exit_title', game.lang),
-            t('exit_msg', game.lang),
-            [
-                { text: 'No', style: 'cancel' },
-                { text: 'Yes', onPress: () => router.replace('/') }
-            ]
-        );
+        if (Platform.OS === 'web') {
+            if (window.confirm(t('exit_msg', game.lang))) {
+                router.replace('/');
+            }
+        } else {
+            Alert.alert(
+                t('exit_title', game.lang),
+                t('exit_msg', game.lang),
+                [
+                    { text: 'No', style: 'cancel' },
+                    { text: 'Yes', onPress: () => router.replace('/') }
+                ]
+            );
+        }
     };
 
     const handleSkip = () => {
