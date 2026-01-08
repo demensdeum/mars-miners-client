@@ -13,10 +13,11 @@ import { t } from '../src/logic/locales';
 interface GameViewProps {
     game: MarsMinersGame;
     playfieldDelegate: PlayfieldDelegate;
+    battlelogWriter: SingleplayerBattlelogWriter;
     onBack: () => void;
 }
 
-function GameView({ game, playfieldDelegate, onBack }: GameViewProps) {
+function GameView({ game, playfieldDelegate, battlelogWriter, onBack }: GameViewProps) {
     const router = useRouter();
 
     // Force update helper
@@ -39,9 +40,15 @@ function GameView({ game, playfieldDelegate, onBack }: GameViewProps) {
         if (!isGameOver && turnRole === 'ai') {
             const timer = setTimeout(() => {
                 setPendingSacrifice(null);
-                const cmd = game.aiMove();
-                if (cmd) {
-                    game.addCommand(cmd);
+                const move = game.aiMove();
+                if (move) {
+                    if (move.type === 'S') {
+                        battlelogWriter.buildStation(move.r, move.c);
+                    } else if (move.type === 'M') {
+                        battlelogWriter.buildMine(move.r, move.c);
+                    } else if (move.type === 'L') {
+                        battlelogWriter.shootLaser(move.tr, move.tc, move.sr, move.sc);
+                    }
                 } else {
                     game.nextTurn();
                 }
@@ -384,7 +391,14 @@ export default function GameScreen() {
         );
     }
 
-    return <GameView game={gameRef.current} playfieldDelegate={battlelogWriterRef.current as any} onBack={handleBack} />;
+    return (
+        <GameView
+            game={gameRef.current}
+            playfieldDelegate={battlelogWriterRef.current as any}
+            battlelogWriter={battlelogWriterRef.current as any}
+            onBack={handleBack}
+        />
+    );
 }
 
 const styles = StyleSheet.create({

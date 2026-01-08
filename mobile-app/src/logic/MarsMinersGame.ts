@@ -24,6 +24,11 @@ export interface GameState {
     battleLog: string[];
 }
 
+export type AIMove =
+    | { type: 'S', r: number, c: number }
+    | { type: 'M', r: number, c: number }
+    | { type: 'L', tr: number, tc: number, sr: number, sc: number };
+
 export class MarsMinersGame implements BattlelogWriterDelegate {
     width: number;
     height: number;
@@ -355,7 +360,7 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
         return false;
     }
 
-    aiMove(): string | null {
+    aiMove(): AIMove | null {
         const p = this.turn;
         const power = this.getLinePower(p);
 
@@ -382,7 +387,7 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
                 if (enemyTargets.length > 0) {
                     const [tr, tc] = enemyTargets[Math.floor(Math.random() * enemyTargets.length)];
                     const sacrifice = myWeaponCells[Math.floor(Math.random() * myWeaponCells.length)];
-                    return `L ${tc} ${tr} ${sacrifice[1]} ${sacrifice[0]}`;
+                    return { type: 'L', tr, tc, sr: sacrifice[0], sc: sacrifice[1] };
                 }
             }
         }
@@ -427,17 +432,17 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
         const choice = topN[Math.floor(Math.random() * topN.length)];
         const [r, c] = choice.pos;
 
-        let to_build = 'st';
+        let to_build: 'S' | 'M' = 'S';
         if (choice.freedom === 0) {
-            to_build = (power < this.weapon_req) ? 'st' : 'mi';
+            to_build = (power < this.weapon_req) ? 'S' : 'M';
         } else {
             if (candidates.length > 5 && Math.random() < 0.2) {
-                to_build = 'mi';
+                to_build = 'M';
             } else {
-                to_build = 'st';
+                to_build = 'S';
             }
         }
 
-        return `${to_build === 'st' ? 'S' : 'M'} ${c} ${r}`;
+        return { type: to_build, r, c };
     }
 }
