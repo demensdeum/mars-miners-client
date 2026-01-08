@@ -13,70 +13,59 @@ export interface Player {
 }
 
 export interface GameState {
-    size: number;
-    grid: Cell[][];
+    width: number;
+    height: number;
     roles: Record<PlayerId, PlayerRole>;
     weapon_req: number;
-    allow_skip: boolean;
-    ai_wait: number;
-    lang: 'en' | 'ru';
     turn: PlayerId;
     player_lost: Record<PlayerId, boolean>;
     game_over: boolean;
-    highlight_weapon: boolean;
     battleLog: string[];
 }
 
 export class MarsMinersGame {
-    size: number;
+    width: number;
+    height: number;
     grid: Cell[][];
     roles: Record<PlayerId, PlayerRole>;
     weapon_req: number;
-    allow_skip: boolean;
-    ai_wait: number;
-    lang: 'en' | 'ru';
-    highlight_weapon: boolean;
     player_lost: Record<PlayerId, boolean>;
     turn: PlayerId;
     game_over: boolean;
     battleLog: string[];
+    highlight_weapon: boolean = true;
 
     players: Record<PlayerId, Player>;
 
     constructor(
         roles: Record<PlayerId, PlayerRole>,
-        grid_size = 10,
-        weapon_req = 4,
-        allow_skip = true,
-        ai_wait = 0,
-        lang: 'en' | 'ru' = 'en'
+        weapon_req = 4
     ) {
-        this.size = grid_size;
-        this.grid = Array(this.size).fill(null).map(() => Array(this.size).fill('.'));
+        this.width = 10;
+        this.height = 10;
+        this.grid = Array(this.height).fill(null).map(() => Array(this.width).fill('.'));
         this.roles = roles;
         this.weapon_req = weapon_req;
-        this.allow_skip = allow_skip;
-        this.ai_wait = ai_wait;
-        this.lang = lang;
-        this.highlight_weapon = true;
         this.player_lost = { 1: false, 2: false, 3: false, 4: false };
         this.game_over = false;
         this.battleLog = [];
-        this.addLog(`CONFIG ${JSON.stringify({
-            size: this.size,
-            weapon_req: this.weapon_req,
-            allow_skip: this.allow_skip,
-            ai_wait: this.ai_wait,
-            lang: this.lang,
-            roles: this.roles
-        })}`);
+
+        this.addLog(`WEAPON_REQ ${this.weapon_req}`);
+
+        let p_count = 1;
+        for (let p_id = 1; p_id <= 4; p_id++) {
+            const role = roles[p_id as PlayerId];
+            if (role !== 'none') {
+                this.addLog(`JOIN ${role}`);
+            }
+        }
 
 
         this.players = {
-            1: { st: '↑', mi: '○', name: t('player_1', lang), pos: [1, 1], color: '#FF6464' },
-            2: { st: '↓', mi: '△', name: t('player_2', lang), pos: [this.size - 2, this.size - 2], color: '#64FF64' },
-            3: { st: '←', mi: '□', name: t('player_3', lang), pos: [1, this.size - 2], color: '#6464FF' },
-            4: { st: '→', mi: '◇', name: t('player_4', lang), pos: [this.size - 2, 1], color: '#FFC832' }
+            1: { st: '↑', mi: '○', name: t('player_1', 'en'), pos: [1, 1], color: '#FF6464' },
+            2: { st: '↓', mi: '△', name: t('player_2', 'en'), pos: [this.height - 2, this.width - 2], color: '#64FF64' },
+            3: { st: '←', mi: '□', name: t('player_3', 'en'), pos: [1, this.width - 2], color: '#6464FF' },
+            4: { st: '→', mi: '◇', name: t('player_4', 'en'), pos: [this.height - 2, 1], color: '#FFC832' }
         };
 
         // Initialize board
@@ -87,7 +76,6 @@ export class MarsMinersGame {
 
             if (role !== 'none') {
                 this.grid[r][c] = this.players[p_id].st;
-                this.addLog(`JOIN ${role}`);
             } else {
                 this.grid[r][c] = 'X';
                 this.player_lost[p_id] = true;
@@ -107,88 +95,37 @@ export class MarsMinersGame {
 
     toDict(): GameState {
         return {
-            size: this.size,
-            grid: [], // Not needed for log-based save
+            width: this.width,
+            height: this.height,
             roles: { ...this.roles },
             weapon_req: this.weapon_req,
-            allow_skip: this.allow_skip,
-            ai_wait: this.ai_wait,
-            lang: this.lang,
             turn: this.turn,
             player_lost: { ...this.player_lost },
             game_over: this.game_over,
-            highlight_weapon: this.highlight_weapon,
             battleLog: [...this.battleLog]
         };
     }
 
-    fromDict(data: GameState) {
-        // Reset to initial state
-        this.size = data.size;
-        this.grid = Array(this.size).fill(null).map(() => Array(this.size).fill('.'));
-        this.roles = data.roles;
-        this.weapon_req = data.weapon_req;
-        this.allow_skip = data.allow_skip;
-        this.ai_wait = data.ai_wait;
-        this.lang = data.lang;
-        this.highlight_weapon = data.highlight_weapon ?? true;
-        this.player_lost = { 1: false, 2: false, 3: false, 4: false };
-        this.game_over = false;
-        this.battleLog = [];
-        this.turn = 1;
-
-        this.players[2].pos = [this.size - 2, this.size - 2];
-        this.players[3].pos = [1, this.size - 2];
-        this.players[4].pos = [this.size - 2, 1];
-
-        // Replay log
-        if (data.battleLog && data.battleLog.length > 0) {
-            this.replayLog(data.battleLog);
-        } else {
-            // If no log, initialize start positions (as in constructor)
-            for (let p_id_str in this.roles) {
-                const p_id = parseInt(p_id_str) as PlayerId;
-                const role = this.roles[p_id];
-                const [r, c] = this.players[p_id].pos;
-
-                if (role !== 'none') {
-                    this.grid[r][c] = this.players[p_id].st;
-                } else {
-                    this.grid[r][c] = 'X';
-                    this.player_lost[p_id] = true;
-                }
-            }
-            while (this.roles[this.turn] === 'none' && this.turn < 4) {
-                this.turn = (this.turn + 1) as PlayerId;
-            }
-        }
-    }
-
     replayLog(log: string[]) {
-        // Initial state logic (duplicate of constructor/fromDict fallback)
-        for (let p_id_str in this.roles) {
-            const p_id = parseInt(p_id_str) as PlayerId;
-            const role = this.roles[p_id];
-            if (role === 'none') {
-                this.grid[this.players[p_id].pos[0]][this.players[p_id].pos[1]] = 'X';
-                this.player_lost[p_id] = true;
-            }
-        }
-
-        this.turn = 1;
-        while (this.roles[this.turn] === 'none' && this.turn < 4) {
-            this.turn = (this.turn + 1) as PlayerId;
-        }
+        let p_id_counter: PlayerId = 1;
+        this.roles = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
 
         // Apply moves
         for (const entry of log) {
             const parts = entry.split(' ');
             const cmd = parts[0];
 
-            if (cmd === 'CONFIG' || cmd === 'JOIN') {
-                // CONFIG is handled by the caller (loader)
-                // JOIN is informative and handled by grid initialization from CONFIG/roles
-                this.battleLog.push(entry);
+            if (cmd === 'SIZE') {
+                // Ignore SIZE commands in legacy logs, as we are hardcoded to 10x10 now
+                continue;
+            } else if (cmd === 'WEAPON_REQ') {
+                this.weapon_req = parseInt(parts[1]);
+            } else if (cmd === 'JOIN') {
+                const role = parts[1] as PlayerRole;
+                this.roles[p_id_counter] = role;
+                const [r, c] = this.players[p_id_counter].pos;
+                this.grid[r][c] = this.players[p_id_counter].st;
+                p_id_counter = (p_id_counter + 1) as PlayerId;
             } else if (cmd === 'S' || cmd === 'M') {
                 const c = parseInt(parts[1]);
                 const r = parseInt(parts[2]);
@@ -197,8 +134,8 @@ export class MarsMinersGame {
                 this.battleLog.push(entry);
                 this.nextTurnInternal();
             } else if (cmd === 'L') {
-                const tr = parseInt(parts[2]);
                 const tc = parseInt(parts[1]);
+                const tr = parseInt(parts[2]);
                 this.grid[tr][tc] = '█';
                 if (parts.length === 5) {
                     const sc = parseInt(parts[3]);
@@ -207,6 +144,14 @@ export class MarsMinersGame {
                 }
                 this.battleLog.push(entry);
                 this.nextTurnInternal();
+            }
+        }
+
+        // Set turn correctly if it's start of game
+        if (this.battleLog.length === 0) {
+            this.turn = 1;
+            while (this.roles[this.turn] === 'none' && this.turn < 4) {
+                this.turn = (this.turn + 1) as PlayerId;
             }
         }
     }
@@ -258,6 +203,20 @@ export class MarsMinersGame {
         } while ((this.roles[this.turn] === 'none' || this.player_lost[this.turn]) && this.turn !== startTurn);
     }
 
+    fromDict(state: GameState) {
+        this.width = state.width;
+        this.height = state.height;
+        this.roles = { ...state.roles };
+        this.weapon_req = state.weapon_req;
+        this.turn = state.turn;
+        this.player_lost = { ...state.player_lost };
+        this.game_over = state.game_over;
+        this.battleLog = [...state.battleLog];
+
+        // Reconstruct grid from log if needed, but here we assume the dict is complete
+        // Actually fromDict should probably just set the values.
+    }
+
     nextTurn() {
         this.nextTurnInternal();
     }
@@ -281,9 +240,9 @@ export class MarsMinersGame {
             const st = this.players[pid].st;
 
             // Check Rows
-            for (let r = 0; r < this.size; r++) {
+            for (let r = 0; r < this.height; r++) {
                 let cur_line: [number, number][] = [];
-                for (let c = 0; c < this.size; c++) {
+                for (let c = 0; c < this.width; c++) {
                     if (this.grid[r][c] === st) {
                         cur_line.push([r, c]);
                     } else {
@@ -299,9 +258,9 @@ export class MarsMinersGame {
             }
 
             // Check Columns
-            for (let c = 0; c < this.size; c++) {
+            for (let c = 0; c < this.width; c++) {
                 let cur_line: [number, number][] = [];
-                for (let r = 0; r < this.size; r++) {
+                for (let r = 0; r < this.height; r++) {
                     if (this.grid[r][c] === st) {
                         cur_line.push([r, c]);
                     } else {
@@ -339,17 +298,17 @@ export class MarsMinersGame {
         const st = this.players[p].st;
         let max_p = 0;
         // Rows
-        for (let r = 0; r < this.size; r++) {
+        for (let r = 0; r < this.height; r++) {
             let cur = 0;
-            for (let c = 0; c < this.size; c++) {
+            for (let c = 0; c < this.width; c++) {
                 cur = (this.grid[r][c] === st) ? cur + 1 : 0;
                 max_p = Math.max(max_p, cur);
             }
         }
         // Cols
-        for (let c = 0; c < this.size; c++) {
+        for (let c = 0; c < this.width; c++) {
             let cur = 0;
-            for (let r = 0; r < this.size; r++) {
+            for (let r = 0; r < this.height; r++) {
                 cur = (this.grid[r][c] === st) ? cur + 1 : 0;
                 max_p = Math.max(max_p, cur);
             }
@@ -359,8 +318,8 @@ export class MarsMinersGame {
 
     canPlayerMove(p: PlayerId): boolean {
         if (this.player_lost[p]) return false;
-        for (let r = 0; r < this.size; r++) {
-            for (let c = 0; c < this.size; c++) {
+        for (let r = 0; r < this.height; r++) {
+            for (let c = 0; c < this.width; c++) {
                 if (this.canBuild(r, c, p)) return true;
             }
         }
@@ -368,14 +327,14 @@ export class MarsMinersGame {
     }
 
     canBuild(r: number, c: number, p: PlayerId): boolean {
-        if (!(r >= 0 && r < this.size && c >= 0 && c < this.size)) return false;
+        if (!(r >= 0 && r < this.height && c >= 0 && c < this.width)) return false;
         if (this.grid[r][c] !== '.') return false;
         const target_station = this.players[p].st;
         const adj = [[-1, 0], [1, 0], [0, -1], [0, 1]];
         for (const [dr, dc] of adj) {
             const nr = r + dr;
             const nc = c + dc;
-            if (nr >= 0 && nr < this.size && nc >= 0 && nc < this.size) {
+            if (nr >= 0 && nr < this.height && nc >= 0 && nc < this.width) {
                 if (this.grid[nr][nc] === target_station) return true;
             }
         }
@@ -408,8 +367,8 @@ export class MarsMinersGame {
 
             if (myWeaponCells.length > 0) {
                 const enemyTargets: [number, number][] = [];
-                for (let r = 0; r < this.size; r++) {
-                    for (let c = 0; c < this.size; c++) {
+                for (let r = 0; r < this.height; r++) {
+                    for (let c = 0; c < this.width; c++) {
                         const cell = this.grid[r][c];
                         // Check if cell is an enemy station
                         for (let pidStr in this.players) {
@@ -436,10 +395,10 @@ export class MarsMinersGame {
             dist: number;
         }
         const candidates: Candidate[] = [];
-        const centerMap = [this.size / 2 - 0.5, this.size / 2 - 0.5];
+        const centerMap: [number, number] = [(this.height - 1) / 2, (this.width - 1) / 2];
 
-        for (let r = 0; r < this.size; r++) {
-            for (let c = 0; c < this.size; c++) {
+        for (let r = 0; r < this.height; r++) {
+            for (let c = 0; c < this.width; c++) {
                 if (this.canBuild(r, c, p)) {
                     // Calc freedom (open neighbors)
                     let openNeighbors = 0;
@@ -447,7 +406,7 @@ export class MarsMinersGame {
                     for (const [dr, dc] of adj) {
                         const nr = r + dr;
                         const nc = c + dc;
-                        if (nr >= 0 && nr < this.size && nc >= 0 && nc < this.size) {
+                        if (nr >= 0 && nr < this.height && nc >= 0 && nc < this.width) {
                             if (this.grid[nr][nc] === '.') openNeighbors++;
                         }
                     }

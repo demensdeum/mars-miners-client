@@ -15,7 +15,6 @@ export default function SetupScreen() {
         1: 'human', 2: 'ai', 3: 'none', 4: 'none'
     });
     const [weaponReq, setWeaponReq] = useState(4);
-    const [allowSkip, setAllowSkip] = useState(true);
     const [loaded, setLoaded] = useState(false);
 
     const cycleRole = (pid: PlayerId) => {
@@ -40,7 +39,6 @@ export default function SetupScreen() {
                     const config = JSON.parse(saved);
                     if (config.roles) setRoles(config.roles);
                     if (config.weaponReq) setWeaponReq(config.weaponReq);
-                    if (config.allowSkip !== undefined) setAllowSkip(config.allowSkip);
                 }
             } catch (e) {
                 console.log('Failed to load settings', e);
@@ -53,22 +51,20 @@ export default function SetupScreen() {
     // Auto-save on change
     useEffect(() => {
         if (!loaded) return;
-        const config = { roles, weaponReq, allowSkip };
+        const config = { roles, weaponReq };
         AsyncStorage.setItem('mm_setup_config', JSON.stringify(config)).catch(e => {
             console.log('Failed to save settings', e);
         });
-    }, [loaded, roles, weaponReq, allowSkip]);
+    }, [loaded, roles, weaponReq]);
 
     const startGame = () => {
         router.push({
             pathname: '/game',
             params: {
                 roles: JSON.stringify(roles),
-                grid_size: 10,
-                weapon_req: weaponReq,
-                allow_skip: allowSkip ? '1' : '0',
-                ai_wait: 500,
-                lang: lang
+                grid_width: '10',
+                grid_height: '10',
+                weapon_req: weaponReq.toString()
             }
         });
     };

@@ -39,7 +39,7 @@ function GameView({ game, onBack }: GameViewProps) {
                 game.aiMove();
                 game.nextTurn();
                 forceUpdate();
-            }, Math.max(50, game.ai_wait));
+            }, 500);
             return () => clearTimeout(timer);
         }
     }, [currentTurn, isGameOver, tick]);
@@ -156,12 +156,12 @@ function GameView({ game, onBack }: GameViewProps) {
 
     // Calculate cell size to fit container
     const availableSize = Math.min(layout.width, layout.height);
-    const cellSize = availableSize > 0 ? (Math.floor(availableSize / game.size) - 2) : 0;
+    const cellSize = availableSize > 0 ? (Math.floor(availableSize / Math.max(game.width, game.height)) - 2) : 0;
 
     const renderCell = ({ item, index }: { item: string, index: number }) => {
         if (cellSize <= 0) return null;
-        const r = Math.floor(index / game.size);
-        const c = index % game.size;
+        const r = Math.floor(index / game.width);
+        const c = index % game.width;
 
         const isWeaponPart = weaponCells.has(`${r},${c}`);
         const isSelectedForSacrifice = pendingSacrifice && pendingSacrifice[0] === r && pendingSacrifice[1] === c;
@@ -213,20 +213,20 @@ function GameView({ game, onBack }: GameViewProps) {
         const maxScore = Math.max(...Object.values(scores).map(Number));
         const winners = Object.keys(scores).filter(k => scores[parseInt(k) as PlayerId] === maxScore);
         if (winners.length > 1) {
-            const names = winners.map(w => game.players[parseInt(w) as PlayerId].name).join(', ');
-            statusText = t('draw', game.lang, { names, m: maxScore });
+            const namesList = winners.map(w => game.players[parseInt(w) as PlayerId].name).join(', ');
+            statusText = t('draw', 'en', { names: namesList, m: maxScore });
         } else {
             const w = parseInt(winners[0]) as PlayerId;
-            statusText = t('winner', game.lang, { name: game.players[w].name, m: maxScore });
+            statusText = t('winner', 'en', { name: game.players[w].name, m: maxScore });
         }
     } else {
         const pName = game.players[currentTurn].name;
         const power = game.getLinePower(currentTurn);
         const req = game.weapon_req;
         const msg = power >= req
-            ? t('ready', game.lang, { n: power })
-            : t('charging', game.lang, { n: power, req });
-        statusText = `${t('turn', game.lang, { name: pName })}\n${msg}`;
+            ? t('ready', 'en', { n: power })
+            : t('charging', 'en', { n: power, req });
+        statusText = `${t('turn', 'en', { name: pName })}\n${msg}`;
     }
 
     return (
@@ -254,13 +254,13 @@ function GameView({ game, onBack }: GameViewProps) {
 
             <View style={styles.gridContainer} onLayout={onLayout}>
                 {cellSize > 0 && (
-                    <View style={{ width: cellSize * game.size, height: cellSize * game.size }}>
+                    <View style={{ width: cellSize * game.width, height: cellSize * game.height }}>
                         <FlatList
                             data={flatGrid}
                             renderItem={renderCell}
                             keyExtractor={(_, i) => i.toString()}
-                            numColumns={game.size}
-                            key={game.size}
+                            numColumns={game.width}
+                            key={game.width}
                             scrollEnabled={false}
                         />
                     </View>
@@ -287,7 +287,7 @@ function GameView({ game, onBack }: GameViewProps) {
                     onPress={() => setBuildMode('st')}
                     disabled={!isHumanTurn}
                 >
-                    <Text style={styles.btnLabel}>{t('station_btn', game.lang)}</Text>
+                    <Text style={styles.btnLabel}>{t('station_btn', 'en')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -295,14 +295,14 @@ function GameView({ game, onBack }: GameViewProps) {
                     onPress={() => setBuildMode('mi')}
                     disabled={!isHumanTurn}
                 >
-                    <Text style={styles.btnLabel}>{t('mine_btn', game.lang)}</Text>
+                    <Text style={styles.btnLabel}>{t('mine_btn', 'en')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                     style={[styles.bottomBtn, styles.saveButtonUI]}
                     onPress={handleSave}
                 >
-                    <Text style={styles.btnLabel}>{t('save', game.lang)}</Text>
+                    <Text style={styles.btnLabel}>{t('save', 'en')}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -314,7 +314,7 @@ function GameView({ game, onBack }: GameViewProps) {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>{t('game_over', game.lang)}</Text>
+                        <Text style={styles.modalTitle}>{t('game_over', 'en')}</Text>
                         <Text style={styles.modalMessage}>{statusText}</Text>
                         <TouchableOpacity style={styles.modalButton} onPress={handleModalOk}>
                             <Text style={styles.modalButtonText}>OK</Text>
@@ -336,17 +336,26 @@ export default function GameScreen() {
         if (!gameRef.current && params.roles) {
             try {
                 const roles = JSON.parse(params.roles as string);
-                const size = parseInt(params.grid_size as string);
-                const weaponReq = parseInt(params.weapon_req as string);
-                const allowSkip = params.allow_skip === '1';
-                const aiWait = parseInt(params.ai_wait as string);
-                const lang = params.lang as 'en' | 'ru';
+                const width = parseInt(params.grid_width as string) || 10;
+                const height = parseInt(params.grid_height as string) || 10;
+                const weaponReq = parseInt(params.weapon_req as string) || 4;
 
-                gameRef.current = new MarsMinersGame(roles, size, weaponReq, allowSkip, aiWait, lang);
+                gameRef.current = new MarsMinersGame(roles, weaponReq);
 
                 if (params.restore_state) {
-                    const savedState = JSON.parse(params.restore_state as string);
-                    gameRef.current.fromDict(savedState);
+                    try {
+                        const parsed = JSON.parse(params.restore_state as string);
+                        if (parsed.battleLog) {
+                            gameRef.current.replayLog(parsed.battleLog);
+                        } else {
+                            // Fallback to old dict format
+                            gameRef.current.fromDict(parsed);
+                        }
+                    } catch (e) {
+                        // Raw text log
+                        const lines = (params.restore_state as string).split('\n').filter(l => l.trim().length > 0);
+                        gameRef.current.replayLog(lines);
+                    }
                 }
 
                 setIsInitialized(true);

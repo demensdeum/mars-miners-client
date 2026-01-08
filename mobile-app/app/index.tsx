@@ -38,7 +38,6 @@ export default function MainMenu() {
 
             let fileContent: string;
             if (Platform.OS === 'web') {
-                // On web, we might need to fetch the blob URI or read direct
                 const response = await fetch(result.assets[0].uri);
                 fileContent = await response.text();
             } else {
@@ -46,41 +45,42 @@ export default function MainMenu() {
             }
 
             const lines = fileContent.split('\n').filter(l => l.trim().length > 0);
-            const configLine = lines.find(l => l.startsWith('CONFIG '));
+            const weaponLine = lines.find(l => l.startsWith('WEAPON_REQ '));
+            const joinLines = lines.filter(l => l.startsWith('JOIN '));
 
-            if (!configLine) {
+            if (!weaponLine || joinLines.length === 0) {
                 // Fallback to JSON if it's an old save
                 try {
                     const state = JSON.parse(fileContent);
                     router.push({
                         pathname: '/game',
                         params: {
-                            roles: JSON.stringify(state.roles),
-                            grid_size: state.size,
-                            weapon_req: state.weapon_req,
-                            allow_skip: state.allow_skip ? '1' : '0',
-                            ai_wait: state.ai_wait,
-                            lang: state.lang,
+                            roles: JSON.stringify(state.roles || { 1: 'human', 2: 'ai', 3: 'none', 4: 'none' }),
+                            grid_width: '10',
+                            grid_height: '10',
+                            weapon_req: (state.weapon_req || 4).toString(),
                             restore_state: fileContent
                         }
                     });
                     return;
                 } catch (e) {
-                    throw new Error("Invalid log file: Missing CONFIG line");
+                    throw new Error("Invalid log file: Missing standard configurations");
                 }
             }
 
-            const config = JSON.parse(configLine.substring(7));
+            const weaponReq = parseInt(weaponLine.split(' ')[1]) || 4;
+            const roles: Record<number, string> = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
+            joinLines.forEach((l, i) => {
+                roles[i + 1] = l.split(' ')[1];
+            });
 
             router.push({
                 pathname: '/game',
                 params: {
-                    roles: JSON.stringify(config.roles),
-                    grid_size: config.size,
-                    weapon_req: config.weapon_req,
-                    allow_skip: config.allow_skip ? '1' : '0',
-                    ai_wait: config.ai_wait,
-                    lang: config.lang,
+                    roles: JSON.stringify(roles),
+                    grid_width: '10',
+                    grid_height: '10',
+                    weapon_req: weaponReq.toString(),
                     restore_state: JSON.stringify({ battleLog: lines })
                 }
             });
@@ -101,10 +101,29 @@ export default function MainMenu() {
                     </TouchableOpacity>
 
                     {savedGame && (
-                        <TouchableOpacity onPress={loadGame} style={[styles.button, styles.loadButton]}>
-                            <Text style={styles.buttonText}>{t('load_game_btn', lang) || "Load Game"}</Text>
+                        <TouchableOpacity
+                            onPress={() => {
+                                const state = JSON.parse(savedGame);
+                                router.push({
+                                    pathname: '/game',
+                                    params: {
+                                        roles: JSON.stringify(state.roles || { 1: 'human', 2: 'ai', 3: 'none', 4: 'none' }),
+                                        grid_width: '10',
+                                        grid_height: '10',
+                                        weapon_req: (state.weapon_req || 4).toString(),
+                                        restore_state: savedGame
+                                    }
+                                });
+                            }}
+                            style={[styles.button, styles.resumeButton]}
+                        >
+                            <Text style={styles.buttonText}>{t('resume_btn', lang) || "Resume"}</Text>
                         </TouchableOpacity>
                     )}
+
+                    <TouchableOpacity onPress={loadGame} style={[styles.button, styles.loadButton]}>
+                        <Text style={styles.buttonText}>{t('load_game_btn', lang) || "Load Game"}</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
         </SafeAreaView>
@@ -129,5 +148,6 @@ const styles = StyleSheet.create({
         elevation: 8
     },
     loadButton: { backgroundColor: '#34c759' },
+    resumeButton: { backgroundColor: '#ff9500' },
     buttonText: { color: '#fff', fontSize: 20, fontWeight: 'bold' }
 });
