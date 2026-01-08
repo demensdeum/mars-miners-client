@@ -478,13 +478,32 @@ export class MarsMinersGame {
         // Parse and execute each command
         // Commands are separated by ;
         const commands = battleLog.split(';');
+
+        // Determine active players for turn calculation
+        const activePlayers = Object.keys(this.roles)
+            .filter(k => this.roles[parseInt(k) as PlayerId] !== 'none')
+            .map(k => parseInt(k) as PlayerId)
+            .sort((a, b) => a - b);
+
+        let validCommandCount = 0;
+
         for (const cmd of commands) {
             const command = cmd.trim();
             if (command === '' || command === 'START') continue;
 
-            if (this.decodeAndExecuteCommand(command)) {
-                this.nextTurn();
+            // Force set turn based on valid command count
+            if (activePlayers.length > 0) {
+                this.turn = activePlayers[validCommandCount % activePlayers.length];
             }
+
+            if (this.decodeAndExecuteCommand(command)) {
+                validCommandCount++;
+            }
+        }
+
+        // Set final turn
+        if (activePlayers.length > 0) {
+            this.turn = activePlayers[validCommandCount % activePlayers.length];
         }
 
         this.commandLog = battleLog;
