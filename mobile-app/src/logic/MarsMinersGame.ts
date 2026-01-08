@@ -232,10 +232,13 @@ export class MarsMinersGame {
         return false;
     }
 
-    shootLaser(r: number, c: number, power: number): boolean {
-        // Python: if self.grid[r][c] != '.' and self.grid[r][c] != '█':
+    shootLaser(r: number, c: number, sacrifice?: [number, number]): boolean {
         if (this.grid[r][c] !== '.' && this.grid[r][c] !== '█') {
             this.grid[r][c] = '█';
+            if (sacrifice) {
+                const [sr, sc] = sacrifice;
+                this.grid[sr][sc] = '█';
+            }
             return true;
         }
         return false;
@@ -294,23 +297,29 @@ export class MarsMinersGame {
 
         // Try shooting if power sufficient
         if (power >= this.weapon_req) {
-            const enemyTargets: [number, number][] = [];
-            for (let r = 0; r < this.size; r++) {
-                for (let c = 0; c < this.size; c++) {
-                    const cell = this.grid[r][c];
-                    // Check if cell is an enemy station
-                    for (let pidStr in this.players) {
-                        const pid = parseInt(pidStr) as PlayerId;
-                        if (pid !== p && cell === this.players[pid].st) {
-                            enemyTargets.push([r, c]);
-                            break; // only add once
+            const weaponCells = Array.from(this.getWeaponCells()).map(s => s.split(',').map(Number) as [number, number]);
+            const myWeaponCells = weaponCells.filter(([r, c]) => this.grid[r][c] === this.players[p].st);
+
+            if (myWeaponCells.length > 0) {
+                const enemyTargets: [number, number][] = [];
+                for (let r = 0; r < this.size; r++) {
+                    for (let c = 0; c < this.size; c++) {
+                        const cell = this.grid[r][c];
+                        // Check if cell is an enemy station
+                        for (let pidStr in this.players) {
+                            const pid = parseInt(pidStr) as PlayerId;
+                            if (pid !== p && cell === this.players[pid].st) {
+                                enemyTargets.push([r, c]);
+                                break; // only add once
+                            }
                         }
                     }
                 }
-            }
-            if (enemyTargets.length > 0) {
-                const [tr, tc] = enemyTargets[Math.floor(Math.random() * enemyTargets.length)];
-                if (this.shootLaser(tr, tc, power)) return;
+                if (enemyTargets.length > 0) {
+                    const [tr, tc] = enemyTargets[Math.floor(Math.random() * enemyTargets.length)];
+                    const sacrifice = myWeaponCells[Math.floor(Math.random() * myWeaponCells.length)];
+                    if (this.shootLaser(tr, tc, sacrifice)) return;
+                }
             }
         }
 

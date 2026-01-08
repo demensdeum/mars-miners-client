@@ -25,12 +25,14 @@ function GameView({ game, onBack }: GameViewProps) {
 
     const [buildMode, setBuildMode] = useState<'st' | 'mi'>('st');
     const [highlight, setHighlight] = useState(game.highlight_weapon);
+    const [pendingSacrifice, setPendingSacrifice] = useState<[number, number] | null>(null);
     const [showGameOverModal, setShowGameOverModal] = useState(false);
 
     // AI Loop
     useEffect(() => {
         if (!isGameOver && turnRole === 'ai') {
             const timer = setTimeout(() => {
+                setPendingSacrifice(null);
                 game.aiMove();
                 game.nextTurn();
                 forceUpdate();
@@ -50,8 +52,22 @@ function GameView({ game, onBack }: GameViewProps) {
     const handleCellPress = (r: number, c: number) => {
         if (!isHumanTurn) return;
 
-        // Enemy check
         const cell = game.grid[r][c];
+        const weaponCells = game.getWeaponCells();
+        const isWeaponPart = weaponCells.has(`${r},${c}`);
+
+        // Try selecting sacrifice
+        if (cell === game.players[currentTurn].st && isWeaponPart) {
+            if (pendingSacrifice && pendingSacrifice[0] === r && pendingSacrifice[1] === c) {
+                setPendingSacrifice(null);
+            } else {
+                setPendingSacrifice([r, c]);
+            }
+            forceUpdate();
+            return;
+        }
+
+        // Enemy check
         let enemyId: PlayerId | null = null;
         for (let pidStr in game.players) {
             const pid = parseInt(pidStr) as PlayerId;
@@ -62,9 +78,9 @@ function GameView({ game, onBack }: GameViewProps) {
         }
 
         if (enemyId) {
-            const power = game.getLinePower(currentTurn);
-            if (power >= game.weapon_req) {
-                if (game.shootLaser(r, c, power)) {
+            if (pendingSacrifice) {
+                if (game.shootLaser(r, c, pendingSacrifice)) {
+                    setPendingSacrifice(null);
                     game.nextTurn();
                     forceUpdate();
                 }
@@ -72,6 +88,7 @@ function GameView({ game, onBack }: GameViewProps) {
         } else if (cell === '.') {
             if (game.canBuild(r, c, currentTurn)) {
                 game.grid[r][c] = game.players[currentTurn][buildMode];
+                setPendingSacrifice(null);
                 game.nextTurn();
                 forceUpdate();
             }
@@ -104,9 +121,11 @@ function GameView({ game, onBack }: GameViewProps) {
         const c = index % game.size;
 
         const isWeaponPart = weaponCells.has(`${r},${c}`);
+        const isSelectedForSacrifice = pendingSacrifice && pendingSacrifice[0] === r && pendingSacrifice[1] === c;
 
         let bgColor = '#1e1e1e';
         if (isWeaponPart) bgColor = '#504614';
+        if (isSelectedForSacrifice) bgColor = '#ff3b30'; // Distinct Red for sacrifice
 
         // Dead cells (destroyed stations) show as grey)
         if (item === '█') bgColor = '#646464';
