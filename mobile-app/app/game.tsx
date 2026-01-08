@@ -3,14 +3,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MarsMinersGame, PlayerId } from '../src/logic/MarsMinersGame';
+import { multiplayerService } from '../src/logic/MultiplayerService';
 import { t } from '../src/logic/locales';
 
 interface GameViewProps {
     game: MarsMinersGame;
     onBack: () => void;
+    myPlayerId?: PlayerId;
 }
 
-function GameView({ game, onBack }: GameViewProps) {
+function GameView({ game, onBack, myPlayerId }: GameViewProps) {
     const router = useRouter();
 
     // Force update helper
@@ -22,14 +24,19 @@ function GameView({ game, onBack }: GameViewProps) {
     const isGameOver = game.game_over;
     const turnRole = game.roles[currentTurn];
     const isHumanTurn = !isGameOver && turnRole === 'human';
+    const isMyTurn = !game.isMultiplayer || (myPlayerId === currentTurn);
+    const canInteract = isHumanTurn && isMyTurn;
 
     const [buildMode, setBuildMode] = useState<'st' | 'mi'>('st');
     const [highlight, setHighlight] = useState(game.highlight_weapon);
     const [showGameOverModal, setShowGameOverModal] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connected');
 
-    // AI Loop
+
+
+    // AI Loop (disable in multiplayer)
     useEffect(() => {
-        if (!isGameOver && turnRole === 'ai') {
+        if (!game.isMultiplayer && !isGameOver && turnRole === 'ai') {
             const timer = setTimeout(() => {
                 game.aiMove();
                 game.nextTurn();
@@ -37,7 +44,30 @@ function GameView({ game, onBack }: GameViewProps) {
             }, Math.max(50, game.ai_wait));
             return () => clearTimeout(timer);
         }
-    }, [currentTurn, isGameOver, tick]);
+    }, [currentTurn, isGameOver, tick, game.isMultiplayer]);
+
+    // Multiplayer Polling Loop
+    useEffect(() => {
+        if (!game.isMultiplayer || isGameOver || !game.battleID) return;
+
+        const interval = setInterval(async () => {
+            try {
+                const response = await multiplayerService.readBattleLog(game.battleID);
+                setConnectionStatus('connected');
+
+                // Sync game state with server log
+                if (response.battleLog !== game.commandLog) {
+                    game.syncFromBattleLog(response.battleLog);
+                    forceUpdate();
+                }
+            } catch (error) {
+                console.error("Polling error:", error);
+                setConnectionStatus('disconnected');
+            }
+        }, 2000);
+
+        return () => clearInterval(interval);
+    }, [game, game.isMultiplayer, isGameOver, game.battleID]);
 
     // Show game over modal
     useEffect(() => {
@@ -47,8 +77,8 @@ function GameView({ game, onBack }: GameViewProps) {
     }, [isGameOver]);
 
     // Cell Interaction
-    const handleCellPress = (r: number, c: number) => {
-        if (!isHumanTurn) return;
+    const handleCellPress = async (r: number, c: number) => {
+        if (!canInteract) return;
 
         // Enemy check
         const cell = game.grid[r][c];
@@ -61,19 +91,55 @@ function GameView({ game, onBack }: GameViewProps) {
             }
         }
 
+        let commandToSend: string | null = null;
+
         if (enemyId) {
             const power = game.getLinePower(currentTurn);
             if (power >= game.weapon_req) {
                 if (game.shootLaser(r, c, power)) {
-                    game.nextTurn();
-                    forceUpdate();
+                    if (game.isMultiplayer) {
+                        commandToSend = game.encodeCommand('L', r, c);
+                    } else {
+                        game.nextTurn();
+                        forceUpdate();
+                    }
                 }
             }
         } else if (cell === '.') {
             if (game.canBuild(r, c, currentTurn)) {
-                game.grid[r][c] = game.players[currentTurn][buildMode];
-                game.nextTurn();
-                forceUpdate();
+                if (game.isMultiplayer) {
+                    commandToSend = game.encodeCommand(buildMode === 'st' ? 'S' : 'M', r, c);
+                } else {
+                    game.grid[r][c] = game.players[currentTurn][buildMode];
+                    game.nextTurn();
+                    forceUpdate();
+                }
+            }
+        }
+
+        // Send command if multiplayer
+        if (commandToSend && game.isMultiplayer && game.sessionID) {
+            try {
+                setConnectionStatus('connecting');
+                // Optimistically apply local change (already done above for building/shooting logic?)
+                // Actually above logic modifies grid. For multiplayer we should maybe wait or optimistic update?
+                // The current code already modifies grid in non-multiplayer block in else.
+                // For multiplayer block, we only set commandToSend. We need to modify grid locally too?
+                // MarsMinersGame.decodeAndExecuteCommand does the modification.
+
+                // Let's modify local state immediately using the command logic
+                if (game.decodeAndExecuteCommand(commandToSend)) {
+                    game.nextTurn();
+                    forceUpdate();
+
+                    // Send to server
+                    await multiplayerService.sendCommand(game.sessionID, game.battleID, commandToSend);
+                    setConnectionStatus('connected');
+                }
+            } catch (error) {
+                console.error("Failed to send command", error);
+                setConnectionStatus('disconnected');
+                // Revert? Complex. For now just let polling fix it eventually.
             }
         }
     };
@@ -111,7 +177,7 @@ function GameView({ game, onBack }: GameViewProps) {
         // Dead cells (destroyed stations) show as grey)
         if (item === '█') bgColor = '#646464';
 
-        if (item === '.' && isHumanTurn && game.canBuild(r, c, currentTurn)) {
+        if (item === '.' && canInteract && game.canBuild(r, c, currentTurn)) {
             bgColor = '#1e3a5f';
         }
 
@@ -159,12 +225,31 @@ function GameView({ game, onBack }: GameViewProps) {
         }
     } else {
         const pName = game.players[currentTurn].name;
-        const power = game.getLinePower(currentTurn);
-        const req = game.weapon_req;
-        const msg = power >= req
-            ? t('ready', game.lang, { n: power })
-            : t('charging', game.lang, { n: power, req });
-        statusText = `${t('turn', game.lang, { name: pName })}\n${msg}`;
+
+        let subText = "";
+
+        if (game.isMultiplayer && !isMyTurn) {
+            subText = t('waiting_for_opponent', game.lang);
+        } else {
+            const power = game.getLinePower(currentTurn);
+            const req = game.weapon_req;
+            const msg = power >= req
+                ? t('ready', game.lang, { n: power })
+                : t('charging', game.lang, { n: power, req });
+            subText = msg;
+        }
+
+        statusText = `${t('turn', game.lang, { name: pName })}\n${subText}`;
+    }
+
+    // Multiplayer Status Header
+    let mpStatus = null;
+    if (game.isMultiplayer) {
+        mpStatus = (
+            <Text style={{ color: connectionStatus === 'connected' ? '#4ade80' : 'red', fontSize: 10, textAlign: 'center' }}>
+                {t('connection_status', game.lang, { status: t(connectionStatus, game.lang) })}
+            </Text>
+        );
     }
 
     return (
@@ -172,6 +257,7 @@ function GameView({ game, onBack }: GameViewProps) {
             <View style={styles.header}>
                 <TouchableOpacity onPress={onBack} style={styles.backBtn}><Text style={styles.btnText}>←</Text></TouchableOpacity>
                 <div dir="auto" style={styles.headerInfo as any}>
+                    {mpStatus}
                     <Text style={styles.headerTitle} numberOfLines={2}>{statusText}</Text>
                     <View style={styles.headerScores}>
                         {[1, 2, 3, 4].map(pid => {
@@ -209,7 +295,7 @@ function GameView({ game, onBack }: GameViewProps) {
                 <TouchableOpacity
                     style={[styles.bottomBtn, buildMode === 'st' ? styles.activeBtn : {}]}
                     onPress={() => setBuildMode('st')}
-                    disabled={!isHumanTurn}
+                    disabled={!canInteract}
                 >
                     <Text style={styles.btnLabel}>{t('station_btn', game.lang)}</Text>
                 </TouchableOpacity>
@@ -217,7 +303,7 @@ function GameView({ game, onBack }: GameViewProps) {
                 <TouchableOpacity
                     style={[styles.bottomBtn, buildMode === 'mi' ? styles.activeBtn : {}]}
                     onPress={() => setBuildMode('mi')}
-                    disabled={!isHumanTurn}
+                    disabled={!canInteract}
                 >
                     <Text style={styles.btnLabel}>{t('mine_btn', game.lang)}</Text>
                 </TouchableOpacity>
@@ -259,7 +345,11 @@ export default function GameScreen() {
                 const aiWait = parseInt(params.ai_wait as string);
                 const lang = params.lang as 'en' | 'ru';
 
-                gameRef.current = new MarsMinersGame(roles, size, weaponReq, allowSkip, aiWait, lang);
+                const isMultiplayer = params.isMultiplayer === '1';
+                const sessionID = params.sessionID as string || '';
+                const battleID = params.battleID as string || '';
+
+                gameRef.current = new MarsMinersGame(roles, size, weaponReq, allowSkip, aiWait, lang, isMultiplayer, sessionID, battleID);
                 setIsInitialized(true);
             } catch (e) {
                 console.error("Failed to parsing params", e);
@@ -282,7 +372,9 @@ export default function GameScreen() {
         );
     }
 
-    return <GameView game={gameRef.current} onBack={handleBack} />;
+    const myPlayerId = params.myPlayerId ? parseInt(params.myPlayerId as string) as PlayerId : undefined;
+
+    return <GameView game={gameRef.current} onBack={handleBack} myPlayerId={myPlayerId} />;
 }
 
 const styles = StyleSheet.create({

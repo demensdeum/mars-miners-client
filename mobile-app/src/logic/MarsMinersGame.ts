@@ -24,6 +24,10 @@ export interface GameState {
     player_lost: Record<PlayerId, boolean>;
     game_over: boolean;
     highlight_weapon: boolean;
+    isMultiplayer?: boolean;
+    sessionID?: string;
+    battleID?: string;
+    commandLog?: string;
 }
 
 export class MarsMinersGame {
@@ -38,6 +42,10 @@ export class MarsMinersGame {
     player_lost: Record<PlayerId, boolean>;
     turn: PlayerId;
     game_over: boolean;
+    isMultiplayer: boolean;
+    sessionID: string;
+    battleID: string;
+    commandLog: string;
 
     players: Record<PlayerId, Player>;
 
@@ -47,7 +55,10 @@ export class MarsMinersGame {
         weapon_req = 4,
         allow_skip = true,
         ai_wait = 0,
-        lang: 'en' | 'ru' = 'en'
+        lang: 'en' | 'ru' = 'en',
+        isMultiplayer = false,
+        sessionID = '',
+        battleID = ''
     ) {
         this.size = grid_size;
         this.grid = Array(this.size).fill(null).map(() => Array(this.size).fill('.'));
@@ -59,6 +70,10 @@ export class MarsMinersGame {
         this.highlight_weapon = true;
         this.player_lost = { 1: false, 2: false, 3: false, 4: false };
         this.game_over = false;
+        this.isMultiplayer = isMultiplayer;
+        this.sessionID = sessionID;
+        this.battleID = battleID;
+        this.commandLog = '';
 
 
         this.players = {
@@ -105,7 +120,11 @@ export class MarsMinersGame {
             turn: this.turn,
             player_lost: { ...this.player_lost },
             game_over: this.game_over,
-            highlight_weapon: this.highlight_weapon
+            highlight_weapon: this.highlight_weapon,
+            isMultiplayer: this.isMultiplayer,
+            sessionID: this.sessionID,
+            battleID: this.battleID,
+            commandLog: this.commandLog
         };
     }
 
@@ -121,6 +140,10 @@ export class MarsMinersGame {
         this.player_lost = data.player_lost;
         this.game_over = data.game_over;
         this.highlight_weapon = data.highlight_weapon ?? true;
+        this.isMultiplayer = data.isMultiplayer ?? false;
+        this.sessionID = data.sessionID ?? '';
+        this.battleID = data.battleID ?? '';
+        this.commandLog = data.commandLog ?? '';
         // Re-init players pos if size changed?
         // Actually players pos logic is tied to size in constructor. We should update player pos based on loaded size.
         this.players[2].pos = [this.size - 2, this.size - 2];
@@ -378,5 +401,92 @@ export class MarsMinersGame {
         }
 
         this.grid[r][c] = (to_build === 'st') ? this.players[p].st : this.players[p].mi;
+    }
+
+    // Multiplayer command encoding/decoding
+    encodeCommand(action: 'S' | 'M' | 'L', x: number, y: number): string {
+        return `${action} ${x} ${y}`;
+    }
+
+    decodeAndExecuteCommand(command: string): boolean {
+        // Command format: "A X Y" where A is action (S/M/L), X and Y are coordinates
+        const parts = command.trim().split(' ');
+        if (parts.length !== 3) return false;
+
+        const action = parts[0];
+        const x = parseInt(parts[1]);
+        const y = parseInt(parts[2]);
+
+        if (isNaN(x) || isNaN(y) || x < 0 || x >= this.size || y < 0 || y >= this.size) {
+            return false;
+        }
+
+        const currentPlayer = this.turn;
+
+        if (action === 'S') {
+            // Build station
+            if (this.canBuild(x, y, currentPlayer)) {
+                this.grid[x][y] = this.players[currentPlayer].st;
+                return true;
+            }
+        } else if (action === 'M') {
+            // Build mine
+            if (this.canBuild(x, y, currentPlayer)) {
+                this.grid[x][y] = this.players[currentPlayer].mi;
+                return true;
+            }
+        } else if (action === 'L') {
+            // Shoot laser
+            const power = this.getLinePower(currentPlayer);
+            if (power >= this.weapon_req) {
+                return this.shootLaser(x, y, power);
+            }
+        }
+
+        return false;
+    }
+
+    syncFromBattleLog(battleLog: string): void {
+        // Only process new commands that we haven't seen yet
+        if (battleLog === this.commandLog) return;
+
+        // Reset game to initial state
+        this.grid = Array(this.size).fill(null).map(() => Array(this.size).fill('.'));
+        this.player_lost = { 1: false, 2: false, 3: false, 4: false };
+        this.game_over = false;
+
+        // Re-initialize board with starting positions
+        for (let p_id_str in this.roles) {
+            const p_id = parseInt(p_id_str) as PlayerId;
+            const role = this.roles[p_id];
+            const [r, c] = this.players[p_id].pos;
+
+            if (role !== 'none') {
+                this.grid[r][c] = this.players[p_id].st;
+            } else {
+                this.grid[r][c] = 'X';
+                this.player_lost[p_id] = true;
+            }
+        }
+
+        // Reset turn to first player
+        this.turn = 1;
+        while (this.roles[this.turn] === 'none' && this.turn < 4) {
+            this.turn = (this.turn + 1) as PlayerId;
+        }
+
+        // Parse and execute each command
+        // Commands are separated by ;
+        const commands = battleLog.split(';');
+        for (const cmd of commands) {
+            const command = cmd.trim();
+            if (command === '' || command === 'START') continue;
+
+            if (this.decodeAndExecuteCommand(command)) {
+                this.nextTurn();
+            }
+        }
+
+        this.commandLog = battleLog;
     }
 }

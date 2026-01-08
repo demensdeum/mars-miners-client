@@ -110,8 +110,12 @@ export default function SetupScreen() {
 
                 <View style={styles.spacer} />
 
+                <TouchableOpacity onPress={() => router.push('/multiplayer')} style={styles.multiplayerButton}>
+                    <Text style={styles.multiplayerButtonText}>{t('multiplayer_btn', lang)}</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity onPress={startGame} style={styles.startButton}>
-                    <Text style={styles.startButtonText}>{t('start_btn', lang)}</Text>
+                    <Text style={styles.startButtonText}>{t('local_game_btn', lang)}</Text>
                 </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
@@ -131,6 +135,8 @@ const styles = StyleSheet.create({
     buttonText: { color: '#fff', fontSize: 16 },
     divider: { height: 1, backgroundColor: '#444', marginVertical: 15 },
     spacer: { height: 30 },
+    multiplayerButton: { backgroundColor: '#9333ea', padding: 15, borderRadius: 10, alignItems: 'center', marginBottom: 10 },
+    multiplayerButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
     startButton: { backgroundColor: '#4a9eff', padding: 15, borderRadius: 10, alignItems: 'center' },
     startButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' }
 });
