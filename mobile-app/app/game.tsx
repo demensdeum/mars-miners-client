@@ -1,6 +1,9 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MarsMinersGame, PlayerId } from '../src/logic/MarsMinersGame';
 import { t } from '../src/logic/locales';
@@ -41,12 +44,51 @@ function GameView({ game, onBack }: GameViewProps) {
         }
     }, [currentTurn, isGameOver, tick]);
 
-    // Show game over modal
     useEffect(() => {
         if (isGameOver) {
             setShowGameOverModal(true);
+            AsyncStorage.removeItem('mm_saved_game').catch(e => console.error("Failed to clear save", e));
         }
     }, [isGameOver]);
+
+    // Auto-save
+    useEffect(() => {
+        if (!isGameOver && tick > 0) {
+            const state = game.toDict();
+            AsyncStorage.setItem('mm_saved_game', JSON.stringify(state)).catch(e => console.error("Failed to auto-save", e));
+        }
+    }, [tick, isGameOver]);
+
+    const handleSave = async () => {
+        try {
+            const fileName = `mars-miners-battle-log.txt`;
+            const logText = game.battleLog.join('\n');
+
+            if (Platform.OS === 'web') {
+                const blob = new Blob([logText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } else {
+                const fileUri = (FileSystem as any).cacheDirectory + fileName;
+                await FileSystem.writeAsStringAsync(fileUri, logText);
+
+                if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(fileUri);
+                } else {
+                    Alert.alert("Error", "Sharing is not available on this platform");
+                }
+            }
+        } catch (e) {
+            console.error("Failed to save log", e);
+            Alert.alert("Error", "Failed to export battle log");
+        }
+    };
 
     // Cell Interaction
     const handleCellPress = (r: number, c: number) => {
@@ -255,6 +297,13 @@ function GameView({ game, onBack }: GameViewProps) {
                 >
                     <Text style={styles.btnLabel}>{t('mine_btn', game.lang)}</Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.bottomBtn, styles.saveButtonUI]}
+                    onPress={handleSave}
+                >
+                    <Text style={styles.btnLabel}>{t('save', game.lang)}</Text>
+                </TouchableOpacity>
             </View>
 
             <Modal
@@ -294,6 +343,12 @@ export default function GameScreen() {
                 const lang = params.lang as 'en' | 'ru';
 
                 gameRef.current = new MarsMinersGame(roles, size, weaponReq, allowSkip, aiWait, lang);
+
+                if (params.restore_state) {
+                    const savedState = JSON.parse(params.restore_state as string);
+                    gameRef.current.fromDict(savedState);
+                }
+
                 setIsInitialized(true);
             } catch (e) {
                 console.error("Failed to parsing params", e);
@@ -332,9 +387,10 @@ const styles = StyleSheet.create({
     cell: { borderWidth: 1, borderColor: '#333', alignItems: 'center', justifyContent: 'center' },
 
     bottomBar: { flexDirection: 'row', height: 80 },
-    bottomBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333', margin: 10, borderRadius: 8 },
+    bottomBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333', margin: 5, borderRadius: 8 },
     activeBtn: { backgroundColor: '#007AFF' },
-    btnLabel: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+    saveButtonUI: { backgroundColor: '#34c759' },
+    btnLabel: { color: '#fff', fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
 
     logContainer: {
         height: 100,

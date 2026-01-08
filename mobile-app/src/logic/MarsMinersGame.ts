@@ -62,6 +62,14 @@ export class MarsMinersGame {
         this.player_lost = { 1: false, 2: false, 3: false, 4: false };
         this.game_over = false;
         this.battleLog = [];
+        this.addLog(`CONFIG ${JSON.stringify({
+            size: this.size,
+            weapon_req: this.weapon_req,
+            allow_skip: this.allow_skip,
+            ai_wait: this.ai_wait,
+            lang: this.lang,
+            roles: this.roles
+        })}`);
 
 
         this.players = {
@@ -100,7 +108,7 @@ export class MarsMinersGame {
     toDict(): GameState {
         return {
             size: this.size,
-            grid: JSON.parse(JSON.stringify(this.grid)),
+            grid: [], // Not needed for log-based save
             roles: { ...this.roles },
             weapon_req: this.weapon_req,
             allow_skip: this.allow_skip,
@@ -115,23 +123,143 @@ export class MarsMinersGame {
     }
 
     fromDict(data: GameState) {
+        // Reset to initial state
         this.size = data.size;
-        this.grid = data.grid;
+        this.grid = Array(this.size).fill(null).map(() => Array(this.size).fill('.'));
         this.roles = data.roles;
         this.weapon_req = data.weapon_req;
         this.allow_skip = data.allow_skip;
         this.ai_wait = data.ai_wait;
         this.lang = data.lang;
-        this.turn = data.turn;
-        this.player_lost = data.player_lost;
-        this.game_over = data.game_over;
         this.highlight_weapon = data.highlight_weapon ?? true;
-        this.battleLog = data.battleLog ?? [];
-        // Re-init players pos if size changed?
-        // Actually players pos logic is tied to size in constructor. We should update player pos based on loaded size.
+        this.player_lost = { 1: false, 2: false, 3: false, 4: false };
+        this.game_over = false;
+        this.battleLog = [];
+        this.turn = 1;
+
         this.players[2].pos = [this.size - 2, this.size - 2];
         this.players[3].pos = [1, this.size - 2];
         this.players[4].pos = [this.size - 2, 1];
+
+        // Replay log
+        if (data.battleLog && data.battleLog.length > 0) {
+            this.replayLog(data.battleLog);
+        } else {
+            // If no log, initialize start positions (as in constructor)
+            for (let p_id_str in this.roles) {
+                const p_id = parseInt(p_id_str) as PlayerId;
+                const role = this.roles[p_id];
+                const [r, c] = this.players[p_id].pos;
+
+                if (role !== 'none') {
+                    this.grid[r][c] = this.players[p_id].st;
+                } else {
+                    this.grid[r][c] = 'X';
+                    this.player_lost[p_id] = true;
+                }
+            }
+            while (this.roles[this.turn] === 'none' && this.turn < 4) {
+                this.turn = (this.turn + 1) as PlayerId;
+            }
+        }
+    }
+
+    replayLog(log: string[]) {
+        // Initial state logic (duplicate of constructor/fromDict fallback)
+        for (let p_id_str in this.roles) {
+            const p_id = parseInt(p_id_str) as PlayerId;
+            const role = this.roles[p_id];
+            if (role === 'none') {
+                this.grid[this.players[p_id].pos[0]][this.players[p_id].pos[1]] = 'X';
+                this.player_lost[p_id] = true;
+            }
+        }
+
+        this.turn = 1;
+        while (this.roles[this.turn] === 'none' && this.turn < 4) {
+            this.turn = (this.turn + 1) as PlayerId;
+        }
+
+        // Apply moves
+        for (const entry of log) {
+            const parts = entry.split(' ');
+            const cmd = parts[0];
+
+            if (cmd === 'CONFIG' || cmd === 'JOIN') {
+                // CONFIG is handled by the caller (loader)
+                // JOIN is informative and handled by grid initialization from CONFIG/roles
+                this.battleLog.push(entry);
+            } else if (cmd === 'S' || cmd === 'M') {
+                const c = parseInt(parts[1]);
+                const r = parseInt(parts[2]);
+                const to_build = cmd === 'S' ? 'st' : 'mi';
+                this.grid[r][c] = (to_build === 'st') ? this.players[this.turn].st : this.players[this.turn].mi;
+                this.battleLog.push(entry);
+                this.nextTurnInternal();
+            } else if (cmd === 'L') {
+                const tr = parseInt(parts[2]);
+                const tc = parseInt(parts[1]);
+                this.grid[tr][tc] = '█';
+                if (parts.length === 5) {
+                    const sc = parseInt(parts[3]);
+                    const sr = parseInt(parts[4]);
+                    this.grid[sr][sc] = '█';
+                }
+                this.battleLog.push(entry);
+                this.nextTurnInternal();
+            }
+        }
+    }
+
+    private nextTurnInternal() {
+        // Update lost status
+        for (let p_id = 1; p_id <= 4; p_id++) {
+            const pid = p_id as PlayerId;
+            if (this.roles[pid] !== 'none' && !this.player_lost[pid]) {
+                if (!this.canPlayerMove(pid)) {
+                    this.player_lost[pid] = true;
+                }
+            }
+        }
+
+        // Check if game over (no active players)
+        const activePlayers = [1, 2, 3, 4].filter(pid =>
+            this.roles[pid as PlayerId] !== 'none' && !this.player_lost[pid as PlayerId]
+        );
+        if (activePlayers.length === 0) {
+            this.game_over = true;
+            return;
+        }
+
+        // Check for early win (one player left with more resources than others)
+        if (activePlayers.length === 1) {
+            const scores = this.getScores();
+            const winnerId = activePlayers[0] as PlayerId;
+            const winnerScore = scores[winnerId] || 0;
+
+            let maxOtherScore = 0;
+            for (let pid = 1; pid <= 4; pid++) {
+                const id = pid as PlayerId;
+                if (id !== winnerId && this.roles[id] !== 'none') {
+                    maxOtherScore = Math.max(maxOtherScore, scores[id] || 0);
+                }
+            }
+
+            if (winnerScore > maxOtherScore) {
+                this.game_over = true;
+                return;
+            }
+        }
+
+        // Advance turn to next valid player
+        const startTurn = this.turn;
+        do {
+            this.turn = (this.turn % 4 + 1) as PlayerId;
+        } while ((this.roles[this.turn] === 'none' || this.player_lost[this.turn]) && this.turn !== startTurn);
+    }
+
+    nextTurn() {
+        this.nextTurnInternal();
     }
 
     getScores(): Record<PlayerId, number> {
@@ -203,6 +331,10 @@ export class MarsMinersGame {
         }
     }
 
+    silentAddLog(entry: string) {
+        this.battleLog.push(entry);
+    }
+
     getLinePower(p: PlayerId): number {
         const st = this.players[p].st;
         let max_p = 0;
@@ -263,53 +395,6 @@ export class MarsMinersGame {
             return true;
         }
         return false;
-    }
-
-    nextTurn() {
-        // Update lost status
-        for (let p_id = 1; p_id <= 4; p_id++) {
-            const pid = p_id as PlayerId;
-            if (this.roles[pid] !== 'none' && !this.player_lost[pid]) {
-                if (!this.canPlayerMove(pid)) {
-                    this.player_lost[pid] = true;
-                }
-            }
-        }
-
-        // Check if game over (no active players)
-        const activePlayers = [1, 2, 3, 4].filter(pid =>
-            this.roles[pid as PlayerId] !== 'none' && !this.player_lost[pid as PlayerId]
-        );
-        if (activePlayers.length === 0) {
-            this.game_over = true;
-            return;
-        }
-
-        // Check for early win (one player left with more resources than others)
-        if (activePlayers.length === 1) {
-            const scores = this.getScores();
-            const winnerId = activePlayers[0] as PlayerId;
-            const winnerScore = scores[winnerId] || 0;
-
-            let maxOtherScore = 0;
-            for (let pid = 1; pid <= 4; pid++) {
-                const id = pid as PlayerId;
-                if (id !== winnerId && this.roles[id] !== 'none') {
-                    maxOtherScore = Math.max(maxOtherScore, scores[id] || 0);
-                }
-            }
-
-            if (winnerScore > maxOtherScore) {
-                this.game_over = true;
-                return;
-            }
-        }
-
-        // Advance turn to next valid player
-        const startTurn = this.turn;
-        do {
-            this.turn = (this.turn % 4 + 1) as PlayerId;
-        } while ((this.roles[this.turn] === 'none' || this.player_lost[this.turn]) && this.turn !== startTurn);
     }
 
     aiMove() {
