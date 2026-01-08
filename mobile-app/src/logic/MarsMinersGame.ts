@@ -24,6 +24,7 @@ export interface GameState {
     player_lost: Record<PlayerId, boolean>;
     game_over: boolean;
     highlight_weapon: boolean;
+    battleLog: string[];
 }
 
 export class MarsMinersGame {
@@ -38,6 +39,7 @@ export class MarsMinersGame {
     player_lost: Record<PlayerId, boolean>;
     turn: PlayerId;
     game_over: boolean;
+    battleLog: string[];
 
     players: Record<PlayerId, Player>;
 
@@ -59,6 +61,7 @@ export class MarsMinersGame {
         this.highlight_weapon = true;
         this.player_lost = { 1: false, 2: false, 3: false, 4: false };
         this.game_over = false;
+        this.battleLog = [];
 
 
         this.players = {
@@ -105,7 +108,8 @@ export class MarsMinersGame {
             turn: this.turn,
             player_lost: { ...this.player_lost },
             game_over: this.game_over,
-            highlight_weapon: this.highlight_weapon
+            highlight_weapon: this.highlight_weapon,
+            battleLog: [...this.battleLog]
         };
     }
 
@@ -121,6 +125,7 @@ export class MarsMinersGame {
         this.player_lost = data.player_lost;
         this.game_over = data.game_over;
         this.highlight_weapon = data.highlight_weapon ?? true;
+        this.battleLog = data.battleLog ?? [];
         // Re-init players pos if size changed?
         // Actually players pos logic is tied to size in constructor. We should update player pos based on loaded size.
         this.players[2].pos = [this.size - 2, this.size - 2];
@@ -185,6 +190,14 @@ export class MarsMinersGame {
         return weapon_cells;
     }
 
+    addLog(command: string, r: number, c: number, sr?: number, sc?: number) {
+        if (sr !== undefined && sc !== undefined) {
+            this.battleLog.push(`${command} ${c} ${r} ${sc} ${sr}`);
+        } else {
+            this.battleLog.push(`${command} ${c} ${r}`);
+        }
+    }
+
     getLinePower(p: PlayerId): number {
         const st = this.players[p].st;
         let max_p = 0;
@@ -238,6 +251,9 @@ export class MarsMinersGame {
             if (sacrifice) {
                 const [sr, sc] = sacrifice;
                 this.grid[sr][sc] = '█';
+                this.addLog('L', r, c, sr, sc);
+            } else {
+                this.addLog('L', r, c);
             }
             return true;
         }
@@ -387,5 +403,6 @@ export class MarsMinersGame {
         }
 
         this.grid[r][c] = (to_build === 'st') ? this.players[p].st : this.players[p].mi;
+        this.addLog(to_build === 'st' ? 'S' : 'M', r, c);
     }
 }

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MarsMinersGame, PlayerId } from '../src/logic/MarsMinersGame';
 import { t } from '../src/logic/locales';
@@ -88,6 +88,7 @@ function GameView({ game, onBack }: GameViewProps) {
         } else if (cell === '.') {
             if (game.canBuild(r, c, currentTurn)) {
                 game.grid[r][c] = game.players[currentTurn][buildMode];
+                game.addLog(buildMode === 'st' ? 'S' : 'M', r, c);
                 setPendingSacrifice(null);
                 game.nextTurn();
                 forceUpdate();
@@ -224,6 +225,20 @@ function GameView({ game, onBack }: GameViewProps) {
                 )}
             </View>
 
+            <View style={styles.logContainer}>
+                <ScrollView
+                    ref={(ref) => ref?.scrollToEnd({ animated: true })}
+                    style={styles.logScrollView}
+                    contentContainerStyle={styles.logContent}
+                >
+                    {game.battleLog.map((log, i) => (
+                        <Text key={i} style={styles.logText}>
+                            {`Turn ${i + 1}: ${log}`}
+                        </Text>
+                    ))}
+                </ScrollView>
+            </View>
+
             <View style={styles.bottomBar}>
                 <TouchableOpacity
                     style={[styles.bottomBtn, buildMode === 'st' ? styles.activeBtn : {}]}
@@ -320,6 +335,19 @@ const styles = StyleSheet.create({
     bottomBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333', margin: 10, borderRadius: 8 },
     activeBtn: { backgroundColor: '#007AFF' },
     btnLabel: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+
+    logContainer: {
+        height: 100,
+        backgroundColor: '#1a1a1a',
+        borderTopWidth: 1,
+        borderTopColor: '#333',
+        marginHorizontal: 10,
+        borderRadius: 8,
+        padding: 5
+    },
+    logScrollView: { flex: 1 },
+    logContent: { paddingVertical: 5 },
+    logText: { color: '#aaa', fontSize: 12, fontFamily: 'monospace', marginBottom: 2 },
 
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center' },
     modalContent: { backgroundColor: '#2a2a2a', padding: 30, borderRadius: 15, alignItems: 'center', minWidth: 300 },
