@@ -5,14 +5,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MarsMinersGame, PlayerId } from '../src/logic/MarsMinersGame';
+import { PlayfieldDelegate } from '../src/logic/PlayfieldDelegate';
+import { BattlelogWriter } from '../src/logic/battlelog/BattlelogWriter';
+import { SingleplayerBattlelogWriter } from '../src/logic/battlelog/SingleplayerBattlelogWriter';
 import { t } from '../src/logic/locales';
 
 interface GameViewProps {
     game: MarsMinersGame;
+    playfieldDelegate: PlayfieldDelegate;
     onBack: () => void;
 }
 
-function GameView({ game, onBack }: GameViewProps) {
+function GameView({ game, playfieldDelegate, onBack }: GameViewProps) {
     const router = useRouter();
 
     // Force update helper
@@ -35,8 +39,12 @@ function GameView({ game, onBack }: GameViewProps) {
         if (!isGameOver && turnRole === 'ai') {
             const timer = setTimeout(() => {
                 setPendingSacrifice(null);
-                game.aiMove();
-                game.nextTurn();
+                const cmd = game.aiMove();
+                if (cmd) {
+                    game.addCommand(cmd);
+                } else {
+                    game.nextTurn();
+                }
                 forceUpdate();
             }, 500);
             return () => clearTimeout(timer);
@@ -111,16 +119,20 @@ function GameView({ game, onBack }: GameViewProps) {
 
         if (enemyId) {
             if (pendingSacrifice) {
-                if (game.shootLaser(r, c, pendingSacrifice)) {
-                    setPendingSacrifice(null);
-                    game.nextTurn();
-                    forceUpdate();
-                }
+                const [sr, sc] = pendingSacrifice;
+                playfieldDelegate.shootLaser(r, c, sr, sc);
+                setPendingSacrifice(null);
+                game.nextTurn();
+                forceUpdate();
             }
         } else if (cell === '.') {
             if (game.canBuild(r, c, currentTurn)) {
                 game.grid[r][c] = game.players[currentTurn][buildMode];
-                game.addLog(buildMode === 'st' ? 'S' : 'M', r, c);
+                if (buildMode === 'st') {
+                    playfieldDelegate.buildStation(r, c);
+                } else {
+                    playfieldDelegate.buildMine(r, c);
+                }
                 setPendingSacrifice(null);
                 game.nextTurn();
                 forceUpdate();
@@ -320,6 +332,7 @@ export default function GameScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const gameRef = useRef<MarsMinersGame | null>(null);
+    const battlelogWriterRef = useRef<BattlelogWriter | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
 
     useEffect(() => {
@@ -331,6 +344,7 @@ export default function GameScreen() {
                 const weaponReq = parseInt(params.weapon_req as string) || 4;
 
                 gameRef.current = new MarsMinersGame(roles, weaponReq);
+                battlelogWriterRef.current = new SingleplayerBattlelogWriter(gameRef.current);
 
                 if (params.restore_state) {
                     try {
@@ -370,7 +384,7 @@ export default function GameScreen() {
         );
     }
 
-    return <GameView game={gameRef.current} onBack={handleBack} />;
+    return <GameView game={gameRef.current} playfieldDelegate={battlelogWriterRef.current as any} onBack={handleBack} />;
 }
 
 const styles = StyleSheet.create({

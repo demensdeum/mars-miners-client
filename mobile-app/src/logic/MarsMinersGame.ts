@@ -1,3 +1,4 @@
+import { BattlelogWriterDelegate } from './battlelog/BattlelogWriterDelegate';
 import { t } from './locales';
 
 export type PlayerRole = 'human' | 'ai' | 'none';
@@ -23,7 +24,7 @@ export interface GameState {
     battleLog: string[];
 }
 
-export class MarsMinersGame {
+export class MarsMinersGame implements BattlelogWriterDelegate {
     width: number;
     height: number;
     grid: Cell[][];
@@ -44,22 +45,11 @@ export class MarsMinersGame {
         this.width = 10;
         this.height = 10;
         this.grid = Array(this.height).fill(null).map(() => Array(this.width).fill('.'));
-        this.roles = roles;
+        this.roles = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
         this.weapon_req = weapon_req;
         this.player_lost = { 1: false, 2: false, 3: false, 4: false };
         this.game_over = false;
         this.battleLog = [];
-
-        this.addLog(`WEAPON_REQ ${this.weapon_req}`);
-
-        let p_count = 1;
-        for (let p_id = 1; p_id <= 4; p_id++) {
-            const role = roles[p_id as PlayerId];
-            if (role !== 'none') {
-                this.addLog(`JOIN ${role}`);
-            }
-        }
-
 
         this.players = {
             1: { st: '↑', mi: '○', name: t('player_1', 'en'), pos: [1, 1], color: '#FF6464' },
@@ -68,17 +58,22 @@ export class MarsMinersGame {
             4: { st: '→', mi: '◇', name: t('player_4', 'en'), pos: [this.height - 2, 1], color: '#FFC832' }
         };
 
-        // Initialize board
-        for (let p_id_str in this.roles) {
-            const p_id = parseInt(p_id_str) as PlayerId;
-            const role = this.roles[p_id];
-            const [r, c] = this.players[p_id].pos;
+        this.applyCommand(`WEAPON_REQ ${this.weapon_req}`);
 
+        for (let p_id = 1; p_id <= 4; p_id++) {
+            const role = roles[p_id as PlayerId];
             if (role !== 'none') {
-                this.grid[r][c] = this.players[p_id].st;
-            } else {
+                this.applyCommand(`JOIN ${role}`);
+            }
+        }
+
+        // Initialize board for non-players (X)
+        for (let p_id = 1; p_id <= 4; p_id++) {
+            const id = p_id as PlayerId;
+            if (this.roles[id] === 'none') {
+                const [r, c] = this.players[id].pos;
                 this.grid[r][c] = 'X';
-                this.player_lost[p_id] = true;
+                this.player_lost[id] = true;
             }
         }
 
@@ -86,11 +81,6 @@ export class MarsMinersGame {
         while (this.roles[this.turn] === 'none' && this.turn < 4) {
             this.turn = (this.turn + 1) as PlayerId;
         }
-        // If turn went past 4 without finding active player, handled logic? Python loops while turn < 4.
-        // Actually Python logic:
-        // while self.roles.get(self.turn) == 'none' and self.turn < 4: self.turn += 1
-        // It could start at 1, increment to 4.
-        // If all are none, handled elsewhere?
     }
 
     toDict(): GameState {
@@ -107,52 +97,63 @@ export class MarsMinersGame {
     }
 
     replayLog(log: string[]) {
-        let p_id_counter: PlayerId = 1;
         this.roles = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
 
         // Apply moves
         for (const entry of log) {
-            const parts = entry.split(' ');
-            const cmd = parts[0];
-
-            if (cmd === 'SIZE') {
-                // Ignore SIZE commands in legacy logs, as we are hardcoded to 10x10 now
-                continue;
-            } else if (cmd === 'WEAPON_REQ') {
-                this.weapon_req = parseInt(parts[1]);
-            } else if (cmd === 'JOIN') {
-                const role = parts[1] as PlayerRole;
-                this.roles[p_id_counter] = role;
-                const [r, c] = this.players[p_id_counter].pos;
-                this.grid[r][c] = this.players[p_id_counter].st;
-                p_id_counter = (p_id_counter + 1) as PlayerId;
-            } else if (cmd === 'S' || cmd === 'M') {
-                const c = parseInt(parts[1]);
-                const r = parseInt(parts[2]);
-                const to_build = cmd === 'S' ? 'st' : 'mi';
-                this.grid[r][c] = (to_build === 'st') ? this.players[this.turn].st : this.players[this.turn].mi;
-                this.battleLog.push(entry);
-                this.nextTurnInternal();
-            } else if (cmd === 'L') {
-                const tc = parseInt(parts[1]);
-                const tr = parseInt(parts[2]);
-                this.grid[tr][tc] = '█';
-                if (parts.length === 5) {
-                    const sc = parseInt(parts[3]);
-                    const sr = parseInt(parts[4]);
-                    this.grid[sr][sc] = '█';
-                }
-                this.battleLog.push(entry);
-                this.nextTurnInternal();
-            }
+            this.applyCommand(entry);
         }
 
         // Set turn correctly if it's start of game
-        if (this.battleLog.length === 0) {
+        if (this.battleLog.length <= 4) { // Roughly startup commands
             this.turn = 1;
             while (this.roles[this.turn] === 'none' && this.turn < 4) {
                 this.turn = (this.turn + 1) as PlayerId;
             }
+        }
+    }
+
+    applyCommand(entry: string) {
+        const parts = entry.split(' ');
+        const cmd = parts[0];
+
+        if (cmd === 'SIZE') {
+            return;
+        } else if (cmd === 'WEAPON_REQ') {
+            this.weapon_req = parseInt(parts[1]);
+            this.battleLog.push(entry);
+        } else if (cmd === 'JOIN') {
+            const role = parts[1] as PlayerRole;
+            // Find next pid
+            let pid: PlayerId = 1;
+            for (let i = 1; i <= 4; i++) {
+                if (this.roles[i as PlayerId] === 'none') {
+                    pid = i as PlayerId;
+                    break;
+                }
+            }
+            this.roles[pid] = role;
+            const [r, c] = this.players[pid].pos;
+            this.grid[r][c] = this.players[pid].st;
+            this.battleLog.push(entry);
+        } else if (cmd === 'S' || cmd === 'M') {
+            const c = parseInt(parts[1]);
+            const r = parseInt(parts[2]);
+            const to_build = cmd === 'S' ? 'st' : 'mi';
+            this.grid[r][c] = (to_build === 'st') ? this.players[this.turn].st : this.players[this.turn].mi;
+            this.battleLog.push(entry);
+            this.nextTurnInternal();
+        } else if (cmd === 'L') {
+            const tc = parseInt(parts[1]);
+            const tr = parseInt(parts[2]);
+            this.grid[tr][tc] = '█';
+            if (parts.length === 5) {
+                const sc = parseInt(parts[3]);
+                const sr = parseInt(parts[4]);
+                this.grid[sr][sc] = '█';
+            }
+            this.battleLog.push(entry);
+            this.nextTurnInternal();
         }
     }
 
@@ -278,6 +279,10 @@ export class MarsMinersGame {
         return weapon_cells;
     }
 
+    addCommand(command: string) {
+        this.applyCommand(command);
+    }
+
     addLog(command: string, r?: number, c?: number, sr?: number, sc?: number) {
         if (r !== undefined && c !== undefined) {
             if (sr !== undefined && sc !== undefined) {
@@ -342,21 +347,15 @@ export class MarsMinersGame {
     }
 
     shootLaser(r: number, c: number, sacrifice?: [number, number]): boolean {
+        // Redundant with applyCommand, but kept for compatibility or AI logic if needed.
+        // However, we should probably prefer the command path.
         if (this.grid[r][c] !== '.' && this.grid[r][c] !== '█') {
-            this.grid[r][c] = '█';
-            if (sacrifice) {
-                const [sr, sc] = sacrifice;
-                this.grid[sr][sc] = '█';
-                this.addLog('L', r, c, sr, sc);
-            } else {
-                this.addLog('L', r, c);
-            }
             return true;
         }
         return false;
     }
 
-    aiMove() {
+    aiMove(): string | null {
         const p = this.turn;
         const power = this.getLinePower(p);
 
@@ -383,7 +382,7 @@ export class MarsMinersGame {
                 if (enemyTargets.length > 0) {
                     const [tr, tc] = enemyTargets[Math.floor(Math.random() * enemyTargets.length)];
                     const sacrifice = myWeaponCells[Math.floor(Math.random() * myWeaponCells.length)];
-                    if (this.shootLaser(tr, tc, sacrifice)) return;
+                    return `L ${tc} ${tr} ${sacrifice[1]} ${sacrifice[0]}`;
                 }
             }
         }
@@ -416,18 +415,7 @@ export class MarsMinersGame {
             }
         }
 
-        if (candidates.length === 0) return;
-
-        // Sort: freedom desc, dist asc (python: -dist for reverse=True means dist desc? Wait.)
-        // Python: candidates.sort(key=lambda x: (x['freedom'], -x['dist']), reverse=True)
-        // Sorts by tuple (freedom, -dist) DESCENDING.
-        // So higher freedom comes first.
-        // If freedom equal, higher -dist comes first => lower dist comes LAST?
-        // Wait. -dist descending means (-10, -5) -> -5 > -10. So smaller distance (5) is "greater" in negative? No.
-        // -5 > -10. So 5 is "smaller distance". -5 is "larger value".
-        // So reverse=True puts LARGER values first.
-        // So it prefers LARGER freedom and LARGER -dist (which means SMALLER dist).
-        // Correct.
+        if (candidates.length === 0) return null;
 
         candidates.sort((a, b) => {
             if (a.freedom !== b.freedom) return b.freedom - a.freedom; // Desc
@@ -443,7 +431,6 @@ export class MarsMinersGame {
         if (choice.freedom === 0) {
             to_build = (power < this.weapon_req) ? 'st' : 'mi';
         } else {
-            // Python: 'mi' if len(candidates) > 5 and random.random() < 0.2 else 'st'
             if (candidates.length > 5 && Math.random() < 0.2) {
                 to_build = 'mi';
             } else {
@@ -451,7 +438,6 @@ export class MarsMinersGame {
             }
         }
 
-        this.grid[r][c] = (to_build === 'st') ? this.players[p].st : this.players[p].mi;
-        this.addLog(to_build === 'st' ? 'S' : 'M', r, c);
+        return `${to_build === 'st' ? 'S' : 'M'} ${c} ${r}`;
     }
 }
