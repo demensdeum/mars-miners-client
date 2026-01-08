@@ -1,9 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getLocales } from 'expo-localization';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { t } from '../src/logic/locales';
@@ -12,16 +11,6 @@ export default function MainMenu() {
     const router = useRouter();
     const deviceLang = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
     const [lang] = useState<'en' | 'ru'>(deviceLang);
-    const [savedGame, setSavedGame] = useState<string | null>(null);
-
-    useEffect(() => {
-        (async () => {
-            const gameSaved = await AsyncStorage.getItem('mm_saved_game');
-            if (gameSaved) {
-                setSavedGame(gameSaved);
-            }
-        })();
-    }, []);
 
     const startNewGame = () => {
         router.push('/setup');
@@ -100,27 +89,6 @@ export default function MainMenu() {
                         <Text style={styles.buttonText}>{t('new_game_btn', lang) || "New Game"}</Text>
                     </TouchableOpacity>
 
-                    {savedGame && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                const state = JSON.parse(savedGame);
-                                router.push({
-                                    pathname: '/game',
-                                    params: {
-                                        roles: JSON.stringify(state.roles || { 1: 'human', 2: 'ai', 3: 'none', 4: 'none' }),
-                                        grid_width: '10',
-                                        grid_height: '10',
-                                        weapon_req: (state.weapon_req || 4).toString(),
-                                        restore_state: savedGame
-                                    }
-                                });
-                            }}
-                            style={[styles.button, styles.resumeButton]}
-                        >
-                            <Text style={styles.buttonText}>{t('resume_btn', lang) || "Resume"}</Text>
-                        </TouchableOpacity>
-                    )}
-
                     <TouchableOpacity onPress={loadGame} style={[styles.button, styles.loadButton]}>
                         <Text style={styles.buttonText}>{t('load_game_btn', lang) || "Load Game"}</Text>
                     </TouchableOpacity>
@@ -148,6 +116,5 @@ const styles = StyleSheet.create({
         elevation: 8
     },
     loadButton: { backgroundColor: '#34c759' },
-    resumeButton: { backgroundColor: '#ff9500' },
     buttonText: { color: '#fff', fontSize: 20, fontWeight: 'bold' }
 });

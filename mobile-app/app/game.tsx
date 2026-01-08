@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -47,17 +46,8 @@ function GameView({ game, onBack }: GameViewProps) {
     useEffect(() => {
         if (isGameOver) {
             setShowGameOverModal(true);
-            AsyncStorage.removeItem('mm_saved_game').catch(e => console.error("Failed to clear save", e));
         }
     }, [isGameOver]);
-
-    // Auto-save
-    useEffect(() => {
-        if (!isGameOver && tick > 0) {
-            const state = game.toDict();
-            AsyncStorage.setItem('mm_saved_game', JSON.stringify(state)).catch(e => console.error("Failed to auto-save", e));
-        }
-    }, [tick, isGameOver]);
 
     const handleSave = async () => {
         try {
