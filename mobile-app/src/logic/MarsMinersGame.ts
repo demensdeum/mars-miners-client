@@ -79,6 +79,7 @@ export class MarsMinersGame {
 
             if (role !== 'none') {
                 this.grid[r][c] = this.players[p_id].st;
+                this.addLog(`JOIN ${role}`);
             } else {
                 this.grid[r][c] = 'X';
                 this.player_lost[p_id] = true;
@@ -190,11 +191,15 @@ export class MarsMinersGame {
         return weapon_cells;
     }
 
-    addLog(command: string, r: number, c: number, sr?: number, sc?: number) {
-        if (sr !== undefined && sc !== undefined) {
-            this.battleLog.push(`${command} ${c} ${r} ${sc} ${sr}`);
+    addLog(command: string, r?: number, c?: number, sr?: number, sc?: number) {
+        if (r !== undefined && c !== undefined) {
+            if (sr !== undefined && sc !== undefined) {
+                this.battleLog.push(`${command} ${c} ${r} ${sc} ${sr}`);
+            } else {
+                this.battleLog.push(`${command} ${c} ${r}`);
+            }
         } else {
-            this.battleLog.push(`${command} ${c} ${r}`);
+            this.battleLog.push(command);
         }
     }
 
