@@ -6,28 +6,39 @@ export class WebsocketsBattlelogWriter extends BattlelogWriter implements Playfi
     private socket: WebSocket;
     private playerSessionId: string;
     private battleSessionId: string;
+    private onStateChange?: () => void;
 
     constructor(
         delegate: BattlelogWriterDelegate,
         socket: WebSocket,
         playerSessionId: string,
-        battleSessionId: string
+        battleSessionId: string,
+        onStateChange?: () => void
     ) {
         super(delegate);
         this.socket = socket;
         this.playerSessionId = playerSessionId;
         this.battleSessionId = battleSessionId;
+        this.onStateChange = onStateChange;
 
         this.socket.onmessage = (event) => {
             const data = event.data.toString().trim();
-            if (data.startsWith('FULLLOG: ')) {
+            if (data.startsWith('FULLLOG: ') || data.startsWith('UPDATE ')) {
+                const jsonStr = data.startsWith('FULLLOG: ') ? data.substring(9) : data.substring(7);
                 try {
-                    const logs = JSON.parse(data.substring(9));
+                    const logs = JSON.parse(jsonStr);
                     if (Array.isArray(logs)) {
-                        logs.forEach(log => this.delegate.addCommand(log));
+                        if ((this.delegate as any).replayLog) {
+                            (this.delegate as any).replayLog(logs);
+                        } else {
+                            logs.forEach(log => this.delegate.addCommand(log));
+                        }
+                        if (this.onStateChange) {
+                            this.onStateChange();
+                        }
                     }
                 } catch (e) {
-                    console.error('Failed to parse FULLLOG', e);
+                    console.error('Failed to parse log update', e);
                 }
             } else if (data.startsWith('ERROR: ')) {
                 console.error('Server error:', data);

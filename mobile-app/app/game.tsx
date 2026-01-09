@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Clipboard, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MarsMinersGame, PlayerId } from '../src/logic/MarsMinersGame';
 import { PlayfieldDelegate } from '../src/logic/PlayfieldDelegate';
@@ -16,9 +16,10 @@ interface GameViewProps {
     playfieldDelegate: PlayfieldDelegate;
     battlelogWriter: SingleplayerBattlelogWriter;
     onBack: () => void;
+    sessionId?: string;
 }
 
-function GameView({ game, playfieldDelegate, battlelogWriter, onBack }: GameViewProps) {
+function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId }: GameViewProps) {
     const router = useRouter();
 
     // Force update helper
@@ -94,6 +95,12 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack }: GameView
             console.error("Failed to save log", e);
             Alert.alert("Error", "Failed to export battle log");
         }
+    };
+
+    const copySession = () => {
+        if (!sessionId) return;
+        Clipboard.setString(sessionId);
+        Alert.alert(t('copy_btn', 'en'), sessionId);
     };
 
     // Cell Interaction
@@ -308,6 +315,15 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack }: GameView
                     <Text style={styles.btnLabel}>{t('mine_btn', 'en')}</Text>
                 </TouchableOpacity>
 
+                {sessionId && (
+                    <TouchableOpacity
+                        style={[styles.bottomBtn, { backgroundColor: '#8e44ad' }]}
+                        onPress={copySession}
+                    >
+                        <Text style={styles.btnLabel}>{t('copy_btn', 'en')}</Text>
+                    </TouchableOpacity>
+                )}
+
                 <TouchableOpacity
                     style={[styles.bottomBtn, styles.saveButtonUI]}
                     onPress={handleSave}
@@ -336,12 +352,14 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack }: GameView
     );
 }
 
+
 export default function GameScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const gameRef = useRef<MarsMinersGame | null>(null);
     const battlelogWriterRef = useRef<BattlelogWriter | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
+    const [, setTick] = useState(0);
 
     useEffect(() => {
         if (!gameRef.current && params.roles) {
@@ -358,7 +376,13 @@ export default function GameScreen() {
 
                 if (mode === 'multi') {
                     const socket = new WebSocket(`ws://localhost:3000`); // Placeholder as requested: Do not implement server code
-                    const writer = new WebsocketsBattlelogWriter(gameRef.current, socket, userId, sessionId);
+                    const writer = new WebsocketsBattlelogWriter(
+                        gameRef.current,
+                        socket,
+                        userId,
+                        sessionId,
+                        () => setTick(t => t + 1)
+                    );
                     battlelogWriterRef.current = writer;
 
                     socket.onopen = () => {
@@ -431,6 +455,7 @@ export default function GameScreen() {
             playfieldDelegate={battlelogWriterRef.current as any}
             battlelogWriter={battlelogWriterRef.current as any}
             onBack={handleBack}
+            sessionId={params.session_id as string}
         />
     );
 }
