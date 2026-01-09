@@ -379,7 +379,7 @@ export default function GameScreen() {
                 gameRef.current = new MarsMinersGame(roles, weaponReq);
 
                 if (mode === 'multi') {
-                    const socket = new WebSocket(`ws://localhost:3000`); // Placeholder as requested: Do not implement server code
+                    const socket = new WebSocket(`wss://mediumdemens.vps.webdock.cloud/mars-miners-battle-server`); // Placeholder as requested: Do not implement server code
                     const writer = new WebsocketsBattlelogWriter(
                         gameRef.current,
                         socket,
