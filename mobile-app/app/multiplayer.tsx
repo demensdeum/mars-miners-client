@@ -71,12 +71,6 @@ export default function MultiplayerScreen() {
                             placeholder="Enter Session ID"
                             placeholderTextColor="#666"
                         />
-                        <TouchableOpacity
-                            onPress={() => setSessionId(generateId())}
-                            style={styles.inlineButton}
-                        >
-                            <Text style={styles.inlineButtonText}>{t('create_session', lang)}</Text>
-                        </TouchableOpacity>
                     </View>
                 </View>
 
@@ -93,7 +87,7 @@ export default function MultiplayerScreen() {
                     style={[styles.startButton, !sessionId && styles.disabledButton]}
                     disabled={!sessionId}
                 >
-                    <Text style={styles.startButtonText}>{t('start_btn', lang)}</Text>
+                    <Text style={styles.startButtonText}>{t('join_game_btn', lang)}</Text>
                 </TouchableOpacity>
 
                 <View style={{ height: 20 }} />
