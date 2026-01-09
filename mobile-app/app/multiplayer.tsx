@@ -11,22 +11,9 @@ export default function MultiplayerScreen() {
     const deviceLang = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
     const [lang] = useState<'en' | 'ru'>(deviceLang);
     const [sessionId, setSessionId] = useState('');
-    const [userId, setUserId] = useState('');
-    const [loaded, setLoaded] = useState(false);
-
     const generateId = () => Math.random().toString(36).substring(2, 10);
-
-    useEffect(() => {
-        (async () => {
-            let storedUid = await AsyncStorage.getItem('mm_user_id');
-            if (!storedUid) {
-                storedUid = generateId();
-                await AsyncStorage.setItem('mm_user_id', storedUid);
-            }
-            setUserId(storedUid);
-            setLoaded(true);
-        })();
-    }, []);
+    const [userId, setUserId] = useState(generateId());
+    const [loaded, setLoaded] = useState(true);
 
     const startGame = (isCreate: boolean, idOverride?: string) => {
         const targetId = idOverride || sessionId;

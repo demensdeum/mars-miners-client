@@ -33,7 +33,8 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
     const turnRole = game.roles[currentTurn];
     // In multiplayer (sessionId exists), check if it's OUR turn.
     // In singleplayer, just check if it's a human role.
-    const isHumanTurn = !isGameOver && turnRole === 'human' && (!sessionId || game.playerIds[currentTurn] === userId);
+    const myPlayerId = userId ? game.getPlayerId(userId) : null;
+    const isHumanTurn = !isGameOver && turnRole === 'human' && (!sessionId || currentTurn === myPlayerId);
 
     const [buildMode, setBuildMode] = useState<'st' | 'mi'>('st');
     const [highlight, setHighlight] = useState(game.highlight_weapon);

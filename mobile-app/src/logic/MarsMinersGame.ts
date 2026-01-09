@@ -476,4 +476,14 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
 
         return { type: to_build, r, c };
     }
+
+    getPlayerId(userId: string): PlayerId | null {
+        for (let pidStr in this.playerIds) {
+            const pid = parseInt(pidStr) as PlayerId;
+            if (this.playerIds[pid] === userId) {
+                return pid;
+            }
+        }
+        return null;
+    }
 }
