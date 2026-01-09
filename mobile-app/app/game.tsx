@@ -390,8 +390,6 @@ export default function GameScreen() {
                     battlelogWriterRef.current = writer;
 
                     socket.onopen = () => {
-                        writer.join('human', userId); // For now hardcode human role logic for join
-                        writer.create(); // Always try create? No.
                         if (params.create_session === 'true') {
                             writer.create();
                             writer.join('human', userId);
