@@ -1,8 +1,8 @@
 # Mars Miners
 
-Mars Miners is a turn-based strategy game for 4 players (Human or AI). Build stations to expand your territory, mines to gather resources, and lasers to destroy your enemies. Be the last miner standing or gather the most resources to win!
+[**Play Online Demo**](https://demensdeum.com/demos/mars-miners/)
 
-[https://demensdeum.com/demos/mars-miners/](https://demensdeum.com/demos/mars-miners/)
+Mars Miners is a turn-based strategy game for 4 players (Human or AI). Build stations to expand your territory, mines to gather resources, and lasers to destroy your enemies. Be the last miner standing or gather the most resources to win!
 
 ## Features
 
@@ -26,7 +26,7 @@ Mars Miners is a turn-based strategy game for 4 players (Human or AI). Build sta
 1.  Clone the repository:
     ```bash
     git clone https://github.com/demensdeum/mars-miners-client.git
-    cd mars-miners-client/mobile-app
+    cd mobile-app
     ```
 
 2.  Install dependencies:
@@ -57,15 +57,6 @@ Mars Miners is a turn-based strategy game for 4 players (Human or AI). Build sta
   - `locales.ts`: Translation strings.
 
 ## Contributing
-
-Contributions are highly appreciated!
-
-- **Gameplay Tests**: Finding bugs and verifying logic.
-- **Balancing**: Suggestions for weapon costs, build ranges, and damage.
-- **Art**: Creating new assets or improving existing UI/UX.
-- **Streamers**: Playing the game on stream.
-- **Promoting**: Sharing the game with others.
-- **Fixes & PRs**: Code improvements and bug fixes.
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
