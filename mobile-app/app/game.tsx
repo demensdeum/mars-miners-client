@@ -247,7 +247,11 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
         const msg = power >= req
             ? t('ready', 'en', { n: power })
             : t('charging', 'en', { n: power, req });
+
         statusText = `${t('turn', 'en', { name: pName })} (${game.roles[currentTurn]})\n${msg}`;
+        if (connectionStatus) {
+            statusText += `\n[${connectionStatus}]`;
+        }
     }
 
     return (
@@ -363,10 +367,12 @@ export default function GameScreen() {
     const gameRef = useRef<MarsMinersGame | null>(null);
     const battlelogWriterRef = useRef<BattlelogWriter | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
-    const [, setTick] = useState(0);
+    const [tick, setTick] = useState(0); // Renamed from [, setTick] to [tick, setTick]
+
+    const [connectionStatus, setConnectionStatus] = useState(''); // Initialize empty, update in useEffect
 
     useEffect(() => {
-        if (!gameRef.current && params.roles) {
+        if (!isInitialized && params.roles) {
             try {
                 const roles = JSON.parse(params.roles as string);
                 const width = parseInt(params.grid_width as string) || 10;
@@ -379,25 +385,43 @@ export default function GameScreen() {
                 gameRef.current = new MarsMinersGame(roles, weaponReq);
 
                 if (mode === 'multi') {
-                    const socket = new WebSocket(`wss://mediumdemens.vps.webdock.cloud/mars-miners-battle-server`); // Placeholder as requested: Do not implement server code
-                    const writer = new WebsocketsBattlelogWriter(
-                        gameRef.current,
-                        socket,
-                        userId,
-                        sessionId,
-                        () => setTick(t => t + 1)
-                    );
-                    battlelogWriterRef.current = writer;
+                    setConnectionStatus('Connecting...'); // Set initial status for multi-mode
+                    const connect = () => {
+                        setConnectionStatus('Connecting...');
+                        const socket = new WebSocket(`wss://mediumdemens.vps.webdock.cloud/mars-miners-battle-server`);
 
-                    socket.onopen = () => {
-                        if (params.create_session === 'true') {
-                            writer.create();
-                            writer.join('human', userId);
-                        } else {
-                            writer.join('human', userId);
-                            writer.readFull();
-                        }
+                        const writer = new WebsocketsBattlelogWriter(
+                            gameRef.current,
+                            socket,
+                            userId,
+                            sessionId,
+                            () => setTick(t => t + 1)
+                        );
+                        battlelogWriterRef.current = writer;
+
+                        socket.onopen = () => {
+                            setConnectionStatus('Connected');
+                            if (params.create_session === 'true') {
+                                writer.create();
+                                writer.join('human', userId);
+                            } else {
+                                writer.join('human', userId);
+                                writer.readFull();
+                            }
+                        };
+
+                        socket.onclose = () => {
+                            setConnectionStatus('Disconnected (Reconnecting...)');
+                            setTimeout(connect, 3000);
+                        };
+
+                        socket.onerror = (error) => {
+                            console.error("WebSocket error:", error);
+                            setConnectionStatus('Error');
+                            socket.close(); // Ensure socket is closed on error
+                        };
                     };
+                    connect();
                 } else {
                     const writer = new SingleplayerBattlelogWriter(
                         gameRef.current,
