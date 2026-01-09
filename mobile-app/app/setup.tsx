@@ -64,7 +64,8 @@ export default function SetupScreen() {
                 roles: JSON.stringify(roles),
                 grid_width: '10',
                 grid_height: '10',
-                weapon_req: weaponReq.toString()
+                weapon_req: weaponReq.toString(),
+                mode: 'single'
             }
         });
     };

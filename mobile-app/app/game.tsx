@@ -8,6 +8,7 @@ import { MarsMinersGame, PlayerId } from '../src/logic/MarsMinersGame';
 import { PlayfieldDelegate } from '../src/logic/PlayfieldDelegate';
 import { BattlelogWriter } from '../src/logic/battlelog/BattlelogWriter';
 import { SingleplayerBattlelogWriter } from '../src/logic/battlelog/SingleplayerBattlelogWriter';
+import { WebsocketsBattlelogWriter } from '../src/logic/battlelog/WebsocketsBattlelogWriter';
 import { t } from '../src/logic/locales';
 
 interface GameViewProps {
@@ -349,9 +350,30 @@ export default function GameScreen() {
                 const width = parseInt(params.grid_width as string) || 10;
                 const height = parseInt(params.grid_height as string) || 10;
                 const weaponReq = parseInt(params.weapon_req as string) || 4;
+                const mode = params.mode as string;
+                const sessionId = params.session_id as string;
+                const userId = params.user_id as string;
 
                 gameRef.current = new MarsMinersGame(roles, weaponReq);
-                battlelogWriterRef.current = new SingleplayerBattlelogWriter(gameRef.current);
+
+                if (mode === 'multi') {
+                    const socket = new WebSocket(`ws://localhost:3000`); // Placeholder as requested: Do not implement server code
+                    const writer = new WebsocketsBattlelogWriter(gameRef.current, socket, userId, sessionId);
+                    battlelogWriterRef.current = writer;
+
+                    socket.onopen = () => {
+                        // In a real scenario, we might need to know if we are creating or joining.
+                        // For now, we'll try to CREATE and then JOIN, or just JOIN.
+                        // The server implementation returns ERROR if already exists.
+                        if (params.create_session === 'true') {
+                            writer.create();
+                        }
+                        writer.join('human', userId); // Logic from multiplayer.tsx suggests joining as human
+                        writer.readFull();
+                    };
+                } else {
+                    battlelogWriterRef.current = new SingleplayerBattlelogWriter(gameRef.current);
+                }
 
                 if (params.restore_state) {
                     try {
@@ -366,6 +388,18 @@ export default function GameScreen() {
                         // Raw text log
                         const lines = (params.restore_state as string).split('\n').filter(l => l.trim().length > 0);
                         gameRef.current.replayLog(lines);
+                    }
+                } else if (mode !== 'multi') {
+                    // Initial setup if not restoring and NOT multi (multi handles it via JOIN command)
+                    const writer = battlelogWriterRef.current as any;
+                    if (writer && writer.join && writer.setWeaponReq) {
+                        writer.setWeaponReq(weaponReq);
+                        for (const pidStr in roles) {
+                            const pid = parseInt(pidStr) as PlayerId;
+                            if (roles[pid] !== 'none') {
+                                writer.join(roles[pid], userId);
+                            }
+                        }
                     }
                 }
 

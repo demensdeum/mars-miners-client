@@ -14,8 +14,8 @@ export class SingleplayerBattlelogWriter extends BattlelogWriter implements Play
         this.delegate.addCommand(`L ${tc} ${tr} ${sc} ${sr}`);
     }
 
-    join(role: string) {
-        this.delegate.addCommand(`JOIN ${role}`);
+    join(role: string, userId: string) {
+        this.delegate.addCommand(`JOIN ${role} ${userId}`);
     }
 
     setWeaponReq(req: number) {

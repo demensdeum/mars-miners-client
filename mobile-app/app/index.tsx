@@ -90,7 +90,11 @@ export default function MainMenu() {
                     </TouchableOpacity>
 
                     <TouchableOpacity onPress={loadGame} style={[styles.button, styles.loadButton]}>
-                        <Text style={styles.buttonText}>{t('load_game_btn', lang) || "Load Game"}</Text>
+                        <Text style={styles.buttonText}>{t('load_game_btn', lang)}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={() => router.push('/multiplayer')} style={[styles.button, styles.multiButton]}>
+                        <Text style={styles.buttonText}>{t('multiplayer', lang)}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -116,5 +120,6 @@ const styles = StyleSheet.create({
         elevation: 8
     },
     loadButton: { backgroundColor: '#34c759' },
+    multiButton: { backgroundColor: '#ff9500' },
     buttonText: { color: '#fff', fontSize: 20, fontWeight: 'bold' }
 });

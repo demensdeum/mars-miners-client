@@ -22,6 +22,7 @@ export interface GameState {
     player_lost: Record<PlayerId, boolean>;
     game_over: boolean;
     battleLog: string[];
+    playerIds: Record<PlayerId, string>;
 }
 
 export type AIMove =
@@ -40,6 +41,7 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
     game_over: boolean;
     battleLog: string[];
     highlight_weapon: boolean = true;
+    playerIds: Record<PlayerId, string>;
 
     players: Record<PlayerId, Player>;
 
@@ -50,11 +52,12 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
         this.width = 10;
         this.height = 10;
         this.grid = Array(this.height).fill(null).map(() => Array(this.width).fill('.'));
-        this.roles = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
+        this.roles = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' }; // Will be overwritten by loop below
         this.weapon_req = weapon_req;
         this.player_lost = { 1: false, 2: false, 3: false, 4: false };
         this.game_over = false;
         this.battleLog = [];
+        this.playerIds = { 1: '', 2: '', 3: '', 4: '' };
 
         this.players = {
             1: { st: '↑', mi: '○', name: t('player_1', 'en'), pos: [1, 1], color: '#FF6464' },
@@ -68,7 +71,8 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
         for (let p_id = 1; p_id <= 4; p_id++) {
             const role = roles[p_id as PlayerId];
             if (role !== 'none') {
-                this.applyCommand(`JOIN ${role}`);
+                // Original code didn't pass userId, so we'll pass an empty string for now
+                this.applyCommand(`JOIN ${role} `);
             }
         }
 
@@ -97,12 +101,14 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
             turn: this.turn,
             player_lost: { ...this.player_lost },
             game_over: this.game_over,
-            battleLog: [...this.battleLog]
+            battleLog: [...this.battleLog],
+            playerIds: { ...this.playerIds }
         };
     }
 
     replayLog(log: string[]) {
         this.roles = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
+        this.playerIds = { 1: '', 2: '', 3: '', 4: '' }; // Reset playerIds on replay
 
         // Apply moves
         for (const entry of log) {
@@ -129,6 +135,7 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
             this.battleLog.push(entry);
         } else if (cmd === 'JOIN') {
             const role = parts[1] as PlayerRole;
+            const userId = parts[2] || '';
             // Find next pid
             let pid: PlayerId = 1;
             for (let i = 1; i <= 4; i++) {
@@ -138,6 +145,7 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
                 }
             }
             this.roles[pid] = role;
+            this.playerIds[pid] = userId;
             const [r, c] = this.players[pid].pos;
             this.grid[r][c] = this.players[pid].st;
             this.battleLog.push(entry);
