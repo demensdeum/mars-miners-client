@@ -107,19 +107,42 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
     }
 
     replayLog(log: string[]) {
+        // Reset state
+        this.width = 10;
+        this.height = 10;
+        this.grid = Array(this.height).fill(null).map(() => Array(this.width).fill('.'));
         this.roles = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
-        this.playerIds = { 1: '', 2: '', 3: '', 4: '' }; // Reset playerIds on replay
+        this.playerIds = { 1: '', 2: '', 3: '', 4: '' };
+        this.turn = 1;
+        this.player_lost = { 1: false, 2: false, 3: false, 4: false };
+        this.game_over = false;
+        this.battleLog = [];
 
         // Apply moves
         for (const entry of log) {
             this.applyCommand(entry);
         }
 
-        // Set turn correctly if it's start of game
-        if (this.battleLog.length <= 4) { // Roughly startup commands
-            this.turn = 1;
-            while (this.roles[this.turn] === 'none' && this.turn < 4) {
-                this.turn = (this.turn + 1) as PlayerId;
+        // Post-replay cleanup: Mark non-joined players as lost/X
+        let activePlayers = 0;
+        for (let i = 1; i <= 4; i++) {
+            const pid = i as PlayerId;
+            if (this.roles[pid] === 'none') {
+                this.player_lost[pid] = true;
+                const [r, c] = this.players[pid].pos;
+                this.grid[r][c] = 'X';
+            } else {
+                activePlayers++;
+            }
+        }
+
+        // Calculate valid turn if we are at start or stuck on invalid player
+        if (activePlayers > 0 && !this.game_over) {
+            const startTurn = this.turn;
+            let moves = 0; // Safety break
+            while ((this.roles[this.turn] === 'none' || this.player_lost[this.turn]) && moves < 4) {
+                this.turn = (this.turn % 4 + 1) as PlayerId;
+                moves++;
             }
         }
     }

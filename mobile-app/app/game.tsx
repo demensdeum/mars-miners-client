@@ -14,12 +14,13 @@ import { t } from '../src/logic/locales';
 interface GameViewProps {
     game: MarsMinersGame;
     playfieldDelegate: PlayfieldDelegate;
-    battlelogWriter: SingleplayerBattlelogWriter;
+    battlelogWriter: BattlelogWriter;
     onBack: () => void;
     sessionId?: string;
+    userId?: string;
 }
 
-function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId }: GameViewProps) {
+function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId, userId }: GameViewProps) {
     const router = useRouter();
 
     // Force update helper
@@ -30,7 +31,9 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId 
     const currentTurn = game.turn;
     const isGameOver = game.game_over;
     const turnRole = game.roles[currentTurn];
-    const isHumanTurn = !isGameOver && turnRole === 'human';
+    // In multiplayer (sessionId exists), check if it's OUR turn.
+    // In singleplayer, just check if it's a human role.
+    const isHumanTurn = !isGameOver && turnRole === 'human' && (!sessionId || game.playerIds[currentTurn] === userId);
 
     const [buildMode, setBuildMode] = useState<'st' | 'mi'>('st');
     const [highlight, setHighlight] = useState(game.highlight_weapon);
@@ -43,13 +46,14 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId 
             const timer = setTimeout(() => {
                 setPendingSacrifice(null);
                 const move = game.aiMove();
+                const writer = battlelogWriter as any;
                 if (move) {
                     if (move.type === 'S') {
-                        battlelogWriter.buildStation(move.r, move.c);
+                        writer.buildStation(move.r, move.c);
                     } else if (move.type === 'M') {
-                        battlelogWriter.buildMine(move.r, move.c);
+                        writer.buildMine(move.r, move.c);
                     } else if (move.type === 'L') {
-                        battlelogWriter.shootLaser(move.tr, move.tc, move.sr, move.sc);
+                        writer.shootLaser(move.tr, move.tc, move.sr, move.sc);
                     }
                 } else {
                     game.nextTurn();
@@ -456,6 +460,7 @@ export default function GameScreen() {
             battlelogWriter={battlelogWriterRef.current as any}
             onBack={handleBack}
             sessionId={params.session_id as string}
+            userId={params.user_id as string}
         />
     );
 }
