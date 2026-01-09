@@ -160,13 +160,26 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
             const role = parts[1] as PlayerRole;
             const userId = parts[2] || '';
             // Find next pid
-            let pid: PlayerId = 1;
+            let pid: PlayerId = 0 as PlayerId;
+            // 1. Try to find empty slot
             for (let i = 1; i <= 4; i++) {
                 if (this.roles[i as PlayerId] === 'none') {
                     pid = i as PlayerId;
                     break;
                 }
             }
+            // 2. If no empty slot, find slot with SAME role but empty ID (claiming pre-filled slot)
+            if (pid === 0) {
+                for (let i = 1; i <= 4; i++) {
+                    const id = i as PlayerId;
+                    if (this.roles[id] === role && !this.playerIds[id]) {
+                        pid = id;
+                        break;
+                    }
+                }
+            }
+            // 3. Fallback (should not happen in valid flow, but keep safety)
+            if (pid === 0) pid = 1;
             this.roles[pid] = role;
             this.playerIds[pid] = userId;
             const [r, c] = this.players[pid].pos;

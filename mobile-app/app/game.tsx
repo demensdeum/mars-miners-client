@@ -22,6 +22,7 @@ interface GameViewProps {
 
 function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId, userId }: GameViewProps) {
     const router = useRouter();
+    console.log('GameView Roles:', game.roles);
 
     // Force update helper
     const [tick, setTick] = useState(0);
@@ -110,6 +111,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
 
     // Cell Interaction
     const handleCellPress = (r: number, c: number) => {
+        console.log(`Cell press: ${r}, ${c}. Turn: ${currentTurn}, Role: ${turnRole}, MyID: ${myPlayerId}, H: ${isHumanTurn}, GO: ${isGameOver}`);
         if (!isHumanTurn) return;
 
         const cell = game.grid[r][c];
@@ -142,19 +144,16 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                 const [sr, sc] = pendingSacrifice;
                 playfieldDelegate.shootLaser(r, c, sr, sc);
                 setPendingSacrifice(null);
-                game.nextTurn();
                 forceUpdate();
             }
         } else if (cell === '.') {
             if (game.canBuild(r, c, currentTurn)) {
-                game.grid[r][c] = game.players[currentTurn][buildMode];
                 if (buildMode === 'st') {
                     playfieldDelegate.buildStation(r, c);
                 } else {
                     playfieldDelegate.buildMine(r, c);
                 }
                 setPendingSacrifice(null);
-                game.nextTurn();
                 forceUpdate();
             }
         }
@@ -248,7 +247,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
         const msg = power >= req
             ? t('ready', 'en', { n: power })
             : t('charging', 'en', { n: power, req });
-        statusText = `${t('turn', 'en', { name: pName })}\n${msg}`;
+        statusText = `${t('turn', 'en', { name: pName })} (${game.roles[currentTurn]})\n${msg}`;
     }
 
     return (
@@ -391,17 +390,37 @@ export default function GameScreen() {
                     battlelogWriterRef.current = writer;
 
                     socket.onopen = () => {
-                        // In a real scenario, we might need to know if we are creating or joining.
-                        // For now, we'll try to CREATE and then JOIN, or just JOIN.
-                        // The server implementation returns ERROR if already exists.
+                        writer.join('human', userId); // For now hardcode human role logic for join
+                        writer.create(); // Always try create? No.
                         if (params.create_session === 'true') {
                             writer.create();
+                            writer.join('human', userId);
+                        } else {
+                            writer.join('human', userId);
+                            writer.readFull();
                         }
-                        writer.join('human', userId); // Logic from multiplayer.tsx suggests joining as human
-                        writer.readFull();
                     };
                 } else {
-                    battlelogWriterRef.current = new SingleplayerBattlelogWriter(gameRef.current);
+                    const writer = new SingleplayerBattlelogWriter(
+                        gameRef.current,
+                        () => setTick(t => t + 1)
+                    );
+                    battlelogWriterRef.current = writer;
+
+                    // Join as ALL human players found in config
+                    let joined = false;
+                    for (let pid = 1; pid <= 4; pid++) {
+                        if (roles[pid as PlayerId] === 'human') {
+                            writer.join('human', userId);
+                            joined = true;
+                        }
+                    }
+                    // Fallback to P1 if no humans (e.g. spectator/AI watch)
+                    if (!joined) {
+                        writer.join('human', userId);
+                    }
+
+                    setIsInitialized(true);
                 }
 
                 if (params.restore_state) {
