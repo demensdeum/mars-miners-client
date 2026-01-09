@@ -18,9 +18,10 @@ interface GameViewProps {
     onBack: () => void;
     sessionId?: string;
     userId?: string;
+    connectionStatus?: string;
 }
 
-function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId, userId }: GameViewProps) {
+function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId, userId, connectionStatus }: GameViewProps) {
     const router = useRouter();
     console.log('GameView Roles:', game.roles);
 
@@ -503,6 +504,7 @@ export default function GameScreen() {
             onBack={handleBack}
             sessionId={params.session_id as string}
             userId={params.user_id as string}
+            connectionStatus={connectionStatus}
         />
     );
 }
