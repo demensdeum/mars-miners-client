@@ -2,15 +2,19 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getLocales } from 'expo-localization';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { t } from '../src/logic/locales';
 
 export default function MainMenu() {
     const router = useRouter();
-    const deviceLang = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
-    const [lang] = useState<'en' | 'ru'>(deviceLang);
+    const [lang, setLang] = useState<'en' | 'ru'>('en');
+
+    useEffect(() => {
+        const deviceLang = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
+        setLang(deviceLang);
+    }, []);
 
     const startNewGame = () => {
         router.push('/setup');

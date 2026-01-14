@@ -9,8 +9,12 @@ import { t } from '../src/logic/locales';
 
 export default function SetupScreen() {
     const router = useRouter();
-    const deviceLang = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
-    const [lang] = useState<'en' | 'ru'>(deviceLang);
+    const [lang, setLang] = useState<'en' | 'ru'>('en');
+
+    useEffect(() => {
+        const deviceLang = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
+        setLang(deviceLang);
+    }, []);
     const [roles, setRoles] = useState<Record<PlayerId, PlayerRole>>({
         1: 'human', 2: 'ai', 3: 'none', 4: 'none'
     });

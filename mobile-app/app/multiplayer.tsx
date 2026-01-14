@@ -8,11 +8,19 @@ import { t } from '../src/logic/locales';
 
 export default function MultiplayerScreen() {
     const router = useRouter();
-    const deviceLang = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
-    const [lang] = useState<'en' | 'ru'>(deviceLang);
+    const [lang, setLang] = useState<'en' | 'ru'>('en');
+
+    useEffect(() => {
+        const detected = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
+        setLang(detected);
+    }, []);
     const [sessionId, setSessionId] = useState('');
     const generateId = () => Math.random().toString(36).substring(2, 10);
-    const [userId, setUserId] = useState(generateId());
+    const [userId, setUserId] = useState("");
+
+    useEffect(() => {
+        setUserId(generateId());
+    }, []);
     const [loaded, setLoaded] = useState(true);
 
     const startGame = (isCreate: boolean, idOverride?: string) => {
