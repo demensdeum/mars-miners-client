@@ -11,9 +11,9 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="index" options={{ title: 'Setup', headerShown: false }} />
-          <Stack.Screen name="game" options={{ title: 'Mars Miners', headerShown: false }} />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" options={{ title: 'Setup' }} />
+          <Stack.Screen name="game" options={{ title: 'Mars Miners' }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
