@@ -1,7 +1,8 @@
 # Docker Setup for Mars Miners Client
 
 This document describes how to build and run the Docker container for the Mars Miners mobile app.
-**Note:** This setup runs the **Expo Development Server** (`npx expo start --web`), allowing for dynamic execution of the React Native web app.
+
+**Note:** We use a **Static Build** served by Node.js. This is **required** to support hosting under a subpath like `/mars-miners/`, as the development server does not support this.
 
 ## Prerequisites
 
@@ -26,21 +27,18 @@ docker run -d -p 8080:80 --name mars-miners-client demensdeum/mars-miners-client
 ## Accessing the App
 
 Access the application at:
-`http://localhost:8080/`
+`http://localhost:8080/mars-miners/`
+
+(Or `https://mediumdemens.vps.webdock.cloud/mars-miners/`)
 
 ## Managing the Container
 
-Stop the container:
+Stop:
 ```bash
 docker stop mars-miners-client
 ```
 
-Remove the container:
+Remove:
 ```bash
 docker rm mars-miners-client
-```
-
-View logs (useful for checking dev server status):
-```bash
-docker logs -f mars-miners-client
 ```

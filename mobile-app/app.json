@@ -24,6 +24,7 @@
       "versionCode": 1
     },
     "web": {
+      "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -44,7 +45,8 @@
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": true,
+      "baseUrl": "/mars-miners"
     },
     "extra": {
       "router": {},
